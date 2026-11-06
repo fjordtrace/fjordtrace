@@ -361,18 +361,18 @@ def roles_claims(org: str, res: FetchResult, out: Contribution) -> list[dict]:
             # birth dates are deliberately discarded (personal data minimisation)
             role = {"name": display, "role_code": code, "role": _g(item, "type", "beskrivelse"),
                     "group": _g(group, "type", "beskrivelse"), "holder_type": "organisation" if holder_org else "person",
-                    "holder_organisation_number": holder_org, "registered_since": changed}
+                    "holder_organisation_number": holder_org, "register_entry_changed": changed}
             role = {k: v for k, v in role.items() if v}
             roles.append(role)
     roles.sort(key=lambda r: (ROLE_PRIORITY.get(r.get("role_code", ""), 9), r.get("name", "")))
     for r in roles:
         span = f"{r.get('group')}: {r.get('role')} {r.get('name')}"
         e = make_evidence(res.url, "official_roles", res.retrieved_at, res.content_sha256, span, "brreg_roles_api_json",
-                          http_status=res.status, access_policy="NLOD-2.0", effective_at=r.get("registered_since"),
+                          http_status=res.status, access_policy="NLOD-2.0", effective_at=r.get("register_entry_changed"),
                           locator=f"rolle={r.get('role_code')}")
         field = "auditor" if r.get("role_code") in ("REVI", "REGN") else "role"
         disc = f"{r.get('role_code')}:{r.get('holder_organisation_number') or r.get('name')}"
-        out.add(make_claim(field, r, [e], discriminator=disc, effective_at=r.get("registered_since")), e)
+        out.add(make_claim(field, r, [e], discriminator=disc, effective_at=r.get("register_entry_changed")), e)
     if not roles:
         out.state("roles", "not_available", "no active roles")
     return roles

@@ -3,5 +3,5 @@ __pycache__/
 *.pyc
 out/
 state/
-data/
+/data/
 *.tmp

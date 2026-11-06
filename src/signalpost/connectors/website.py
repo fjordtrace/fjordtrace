@@ -540,6 +540,10 @@ class _CompanyRun:
             evs.append(self.ev(home, f"<title>{home.title}</title>" if home.title else home.text[:200], "http_fetch_homepage",
                                "html>head>title"))
         value = self._site_value(cand, dec, home, proofs)
+        if value.get("declared_url"):
+            # unproven site: publish what the source declared, not where it redirects (e.g. a foreign group domain)
+            value["redirects_to"] = value["url"]
+            value["url"] = value.pop("declared_url")
         note = dec.reason + ". Only the URL is published; no site content is attributed."
         if ev.js_shell:
             note += " The site is a JavaScript application shell and was not rendered."
@@ -559,11 +563,10 @@ class _CompanyRun:
                  "other_organisations_listing": cand.others_site}
         note = (f"{dec.reason}; this is a shared site (manager, group or service provider) and none of its content is "
                 "attributed to this organisation")
-        if evs:
-            self.out.add(make_claim("shared_website", value, evs, confidence=0.4, note=note), *evs)
-            self.out.state("official_website", "available", note)
-        else:
-            self.out.state("official_website", "not_available", note)
+        # Not published as this organisation's website: a shared domain (housing-cooperative manager, accountant,
+        # group) would read as a wrong-company website. Kept as an ambiguous candidate with the declaration evidence.
+        self.out.add(make_claim("shared_website", value, evs, availability="ambiguous", confidence=0.4, note=note), *evs)
+        self.out.state("official_website", "ambiguous", note)
         self.out.facts.update({"website_shared": value["url"], "website_identity": "shared"})
         why = "only a shared website is known; its links are not attributed to this organisation"
         self._state_if_free("social_profiles", "not_available", why)

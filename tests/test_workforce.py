@@ -203,3 +203,35 @@ def test_stable_pdf_hash_ignores_regenerated_id():
     b = b"%PDF-1.6\n...trailer\n<< /Size 9 /ID [<637898CAD85E85AA0C0BED06A05485CA> <637898CAD85E85AA0C0BED06A05485CA>] >>"
     assert stable_pdf_sha256(a) == stable_pdf_sha256(b)
     assert stable_pdf_sha256(a) != stable_pdf_sha256(a.replace(b"/Size 9", b"/Size 8"))
+
+
+@pytest.mark.parametrize("payroll,state", [(3_381_320.0, "ambiguous"), (0.0, "available"), (None, "available")])
+def test_stated_zero_contradicted_by_payroll_abstains(monkeypatch, payroll, state):
+    from signalpost.budget import Budget
+    from signalpost.connectors import workforce as wf
+    from signalpost.connectors import workforce_ocr as wo
+    from signalpost.http import FetchResult
+    from signalpost.model import Contribution
+
+    figures = {} if payroll is None else {"payroll_cost": payroll}
+
+    class Batch:
+        budget = Budget(max_requests=10, time_budget_s=1000)
+
+    class Ctx:
+        org = "989760939"
+        profile = {"sisteInnsendteAarsregnskap": "2025"}
+        registry = Contribution(facts={"accounts": [{"account_type": "SELSKAP", "period_start": "2025-01-01",
+                                                     "period_end": "2025-12-31", "figures": figures}]})
+        budget = Batch.budget
+
+    conn = wf.WorkforceConnector()
+    pdf = b"%PDF-1.4 fake"
+    monkeypatch.setattr(conn, "_fetch", lambda ctx, url: (FetchResult(url, url, 200, "t", pdf, "application/pdf"), None))
+    monkeypatch.setattr(wo, "get_engine", lambda: object())
+    monkeypatch.setattr(wo, "extract_structured", lambda *a, **k: wo.ExtractResult(findings=[_f("SELSKAP", "0.00")]))
+    out = conn.run(Ctx())
+    assert out.family_states["workforce"]["state"] == state
+    claim = out.claims[0]
+    assert claim["availability"] == state and claim["value"]["value"] == 0
+    assert claim["evidence_ids"]  # the quoted statement is kept either way

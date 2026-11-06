@@ -35,6 +35,7 @@ from . import workforce_parse as wp
 from .base import BatchContext, CompanyContext, Connector
 
 COPY_URL = "https://data.brreg.no/regnskapsregisteret/regnskap/aarsregnskap/kopi/{org}/{year}"
+ZERO_FTE_PAYROLL_LIMIT = 500_000  # NOK
 SOURCE_CLASS = "official_annual_account_copy"
 MAX_PDF_BYTES = 40_000_000
 _PDF_ID_RE = re.compile(rb"/ID\s*\[\s*<[0-9A-Fa-f]*>\s*<[0-9A-Fa-f]*>\s*\]")
@@ -235,17 +236,26 @@ class WorkforceConnector(Connector):
         value_num: float | int = int(dec.value) if float(dec.value).is_integer() else dec.value
         value = {"value": value_num, "measure": dec.measure, "year": year, "scope": "company"}
         note = None
+        availability = "available"
         payroll = _payroll(ctx, year)
         if payroll is not None:
-            if dec.value == 0 and payroll >= 1_000_000:
-                note = f"filing states zero årsverk while reported payroll cost is {payroll:,.0f}"
+            if dec.value == 0 and payroll >= ZERO_FTE_PAYROLL_LIMIT:
+                # The form's default 0.00 is often left untouched; a stated zero contradicted by the same
+                # filing's payroll is not published as the company's workforce.
+                availability = "ambiguous"
+                note = (f"filing states 0.00 årsverk but the same year's accounts report payroll costs of "
+                        f"NOK {payroll:,.0f}; not published as a workforce figure")
             elif dec.value > 0 and payroll == 0:
                 note = "filing states årsverk while reported payroll cost is zero"
         ev = make_evidence(url, SOURCE_CLASS, res.retrieved_at, stable_pdf_sha256(pdf), dec.span or "",
                            dec.method or "pdf_ocr_rapidocr", final_url=res.final_url, effective_at=period_end,
                            locator=dec.locator or f"page={dec.page}", http_status=res.status, access_policy="NLOD-2.0")
-        out.add(make_claim("workforce_fte", value, [ev], discriminator=year, confidence=dec.confidence,
+        out.add(make_claim("workforce_fte", value, [ev], availability=availability, discriminator=year,
+                           confidence=dec.confidence if availability == "available" else 0.3,
                            reporting_period=period, effective_at=period_end, note=note), ev)
+        if availability != "available":
+            out.state("workforce", availability, note, **diag)
+            return out
         out.state("workforce", "available", dec.reason, **diag)
         out.facts["workforce"] = value
         return out

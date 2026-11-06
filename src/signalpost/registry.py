@@ -122,9 +122,29 @@ class BulkSnapshot:
         self.site_domain_count: Counter = Counter()
         self.rows_scanned = 0
         self.file_sha256 = None
-        if not path:
+        self.shared_fallback = None
+        if path:
+            self._scan(path, set(wanted))
+        self._merge_shared_fallback()
+
+    def _merge_shared_fallback(self) -> None:
+        """Shipped table of domains listed by >1 organisation (tools/build_shared_domains.py).
+
+        Used as a floor so a partial or missing snapshot never under-counts domain sharing."""
+        try:
+            from importlib.resources import files
+            data = json.loads(gzip.decompress((files("signalpost") / "data" / "shared_domains.json.gz").read_bytes()))
+        except (FileNotFoundError, ModuleNotFoundError, OSError, ValueError):
             return
-        wanted = set(wanted)
+        for d, n in data.get("email", {}).items():
+            if n > self.email_domain_count.get(d, 0):
+                self.email_domain_count[d] = n
+        for d, n in data.get("site", {}).items():
+            if n > self.site_domain_count.get(d, 0):
+                self.site_domain_count[d] = n
+        self.shared_fallback = {"built_at": data.get("built_at"), "source_sha256": data.get("source_sha256")}
+
+    def _scan(self, path: str, wanted: set[str]) -> None:
         sha = hashlib.sha256()
         with open(path, "rb") as fh:
             for chunk in iter(lambda: fh.read(1 << 22), b""):

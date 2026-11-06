@@ -198,6 +198,13 @@ def decide(cand: Candidate, ev: IdentityEvidence, group_member: bool, related: d
             return Decision("exact", "organisation number shown on the site")
         if ev.ours_count and ev.others and ev.others.most_common(1)[0][1] < ev.ours_count and not ev.redirected_to:
             return Decision("exact", "organisation number shown on the site")
+        # Second proof path: the legal name on the site AND a registry-held contact detail of this exact
+        # organisation (its registered phone, e-mail or street address). A namesake cannot show those.
+        hard = [c for c in ev.corroborations if c[0].split(":")[0] in ("phone", "email", "address")]
+        if (ev.name_in_text and hard and not ev.others and not ev.foreign_owner and not ev.redirected_to
+                and not group_member and not ev.js_shell):
+            kinds = "/".join(sorted({c[0].split(":")[0] for c in hard}))
+            return Decision("strong", f"legal name and registered {kinds} found on the site")
         return Decision("unverified", "name-derived or search-nominated domain without this organisation number on the site")
     if ev.ours_count:
         top_org, top = (ev.others.most_common(1)[0] if ev.others else (None, 0))

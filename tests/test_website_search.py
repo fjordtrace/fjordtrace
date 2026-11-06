@@ -14,7 +14,7 @@ from signalpost.model import Contribution
 
 def test_search_candidate_needs_exact_proof():
     cand = Candidate("example.no", "https://example.no/", ["search"], {"search": "https://example.no/"})
-    ev = IdentityEvidence(name_in_text=True, domain_match="example", corroborations=[("phone", "u", "s")])
+    ev = IdentityEvidence(name_in_text=True, domain_match="example", corroborations=[("person", "u", "s")])
     assert decide(cand, ev, group_member=False).level == "unverified"
     ev.ours_count = 1
     assert decide(cand, ev, group_member=False).level == "exact"
@@ -60,3 +60,16 @@ def test_search_skipped_for_dormant_companies(monkeypatch):
     accounts = [{"account_type": "SELSKAP", "figures": {"revenue": 0}}]
     run, _ = _run(monkeypatch, {}, profile, accounts)
     assert not run._search_allowed()
+
+
+def test_guess_strong_needs_name_and_registry_contact():
+    cand = Candidate("example.no", "https://example.no/", ["guess"], {"guess": "example.no"})
+    ev = IdentityEvidence(name_in_text=True, corroborations=[("person", "u", "Kari Nordmann")])
+    assert decide(cand, ev, group_member=False).level == "unverified"  # a person's name is not enough
+    ev.corroborations.append(("phone:telefon", "u", "51 68 57 00"))
+    assert decide(cand, ev, group_member=False).level == "strong"
+    assert decide(cand, ev, group_member=True).level == "unverified"  # group members need the org number
+    ev.others = Counter({"999999999": 1})
+    assert decide(cand, ev, group_member=False).level == "unverified"  # another org number on the site
+    ev2 = IdentityEvidence(name_in_text=False, corroborations=[("phone:telefon", "u", "51 68 57 00")])
+    assert decide(cand, ev2, group_member=False).level == "unverified"

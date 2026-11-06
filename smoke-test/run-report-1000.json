@@ -1,0 +1,152 @@
+{
+  "run_id": "full1k",
+  "agent_version": "0.1.0",
+  "started_at": "2026-11-06T14:37:44Z",
+  "completed_at": "2026-11-06T15:07:51Z",
+  "inputs": 1000,
+  "unique_valid_inputs": 1000,
+  "emitted_envelopes": 1000,
+  "envelope_states": {
+    "available": 1000
+  },
+  "family_states": {
+    "group_relation": {
+      "not_applicable": 946,
+      "available": 53,
+      "not_available": 1
+    },
+    "wikidata": {
+      "not_available": 988,
+      "available": 12
+    },
+    "jobs": {
+      "not_available": 996,
+      "available": 4
+    },
+    "workforce": {
+      "available": 943,
+      "not_available": 22,
+      "blocked": 35
+    },
+    "official_website": {
+      "not_available": 786,
+      "failed": 18,
+      "available": 98,
+      "ambiguous": 75,
+      "blocked": 23
+    },
+    "social_profiles": {
+      "not_available": 880,
+      "failed": 18,
+      "available": 42,
+      "ambiguous": 37,
+      "blocked": 23
+    },
+    "news_activity": {
+      "not_available": 903,
+      "failed": 18,
+      "ambiguous": 37,
+      "available": 19,
+      "blocked": 23
+    },
+    "legal_identity": {
+      "available": 1000
+    },
+    "annual_accounts": {
+      "available": 1000
+    },
+    "roles": {
+      "available": 998,
+      "not_available": 2
+    },
+    "workplaces": {
+      "available": 766,
+      "not_available": 234
+    }
+  },
+  "claims_available": 20950,
+  "claims_by_field": {
+    "role": 2888,
+    "annual_accounts": 2790,
+    "auditor": 1006,
+    "workplace": 1005,
+    "industry": 1004,
+    "legal_form": 1000,
+    "legal_name": 1000,
+    "registration_status": 1000,
+    "activity_description": 998,
+    "annual_account_filing": 998,
+    "registered_date": 998,
+    "registered_address": 996,
+    "founded_date": 988,
+    "statutory_purpose": 963,
+    "workforce_fte": 943,
+    "share_capital": 928,
+    "registry_contact": 353,
+    "contact_detail": 223,
+    "postal_address": 210,
+    "registered_employees": 132,
+    "official_website": 98,
+    "site_location": 84,
+    "news_item": 78,
+    "social_profile": 77,
+    "group_relation": 63,
+    "company_description": 54,
+    "public_brand": 53,
+    "wikidata_item": 12,
+    "job_posting": 8
+  },
+  "companies_with_external_claim": 951,
+  "changes": 0,
+  "operations": {
+    "max_requests": 18000,
+    "requests_used": 6406,
+    "requests_by_phase": {
+      "registry": 4054,
+      "wikidata": 19,
+      "nav_jobs": 11,
+      "workforce": 1117,
+      "website": 1205
+    },
+    "requests_refused_by_phase": {},
+    "time_budget_s": 2700.0,
+    "elapsed_s": 1807.14,
+    "http_responses": 6250,
+    "bytes": 448305092,
+    "p50_ms": 10591,
+    "p95_ms": 51213,
+    "third_party_cost_usd": 0.0
+  },
+  "connectors": {
+    "website": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0
+    },
+    "nav_jobs": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0
+    },
+    "workforce": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0
+    },
+    "wikidata": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0
+    }
+  },
+  "registry_snapshot": {
+    "path": "../data/brreg-enheter.csv.gz",
+    "sha256": "d3513fc2c0c15facb360568a2c92333a39f2059edfc29d0f1cf5f130e990ade3",
+    "rows_scanned": 1180410
+  },
+  "validation": {
+    "passed": true,
+    "exact_count": true,
+    "contract_problems": {}
+  }
+}

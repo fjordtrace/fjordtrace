@@ -1,0 +1,147 @@
+{
+  "run_id": "smoke-100",
+  "agent_version": "0.1.0",
+  "started_at": "2026-11-06T15:08:51Z",
+  "completed_at": "2026-11-06T15:12:37Z",
+  "inputs": 100,
+  "unique_valid_inputs": 100,
+  "emitted_envelopes": 100,
+  "envelope_states": {
+    "available": 100
+  },
+  "family_states": {
+    "group_relation": {
+      "not_applicable": 91,
+      "available": 9
+    },
+    "wikidata": {
+      "available": 1,
+      "not_available": 99
+    },
+    "jobs": {
+      "not_available": 100
+    },
+    "official_website": {
+      "available": 10,
+      "not_available": 81,
+      "blocked": 1,
+      "ambiguous": 6,
+      "failed": 2
+    },
+    "social_profiles": {
+      "available": 6,
+      "not_available": 86,
+      "blocked": 1,
+      "ambiguous": 5,
+      "failed": 2
+    },
+    "news_activity": {
+      "not_available": 91,
+      "blocked": 1,
+      "available": 1,
+      "ambiguous": 5,
+      "failed": 2
+    },
+    "workforce": {
+      "not_available": 3,
+      "available": 97
+    },
+    "legal_identity": {
+      "available": 100
+    },
+    "annual_accounts": {
+      "available": 100
+    },
+    "roles": {
+      "available": 100
+    },
+    "workplaces": {
+      "available": 75,
+      "not_available": 25
+    }
+  },
+  "claims_available": 2050,
+  "claims_by_field": {
+    "annual_accounts": 277,
+    "role": 265,
+    "industry": 105,
+    "activity_description": 100,
+    "annual_account_filing": 100,
+    "legal_form": 100,
+    "legal_name": 100,
+    "registered_address": 100,
+    "registered_date": 100,
+    "registration_status": 100,
+    "founded_date": 99,
+    "statutory_purpose": 98,
+    "workforce_fte": 97,
+    "auditor": 95,
+    "share_capital": 94,
+    "workplace": 79,
+    "registry_contact": 30,
+    "contact_detail": 23,
+    "postal_address": 17,
+    "official_website": 10,
+    "public_brand": 10,
+    "site_location": 10,
+    "social_profile": 10,
+    "group_relation": 10,
+    "company_description": 9,
+    "registered_employees": 8,
+    "news_item": 3,
+    "wikidata_item": 1
+  },
+  "companies_with_external_claim": 98,
+  "changes": 0,
+  "operations": {
+    "max_requests": 1800,
+    "requests_used": 629,
+    "requests_by_phase": {
+      "registry": 409,
+      "nav_jobs": 3,
+      "wikidata": 2,
+      "workforce": 100,
+      "website": 115
+    },
+    "requests_refused_by_phase": {},
+    "time_budget_s": 2700.0,
+    "elapsed_s": 226.33,
+    "http_responses": 613,
+    "bytes": 39414349,
+    "p50_ms": 11188,
+    "p95_ms": 29663,
+    "third_party_cost_usd": 0.0
+  },
+  "connectors": {
+    "website": {
+      "ok": 100,
+      "error": 0,
+      "skipped": 0
+    },
+    "nav_jobs": {
+      "ok": 100,
+      "error": 0,
+      "skipped": 0
+    },
+    "workforce": {
+      "ok": 100,
+      "error": 0,
+      "skipped": 0
+    },
+    "wikidata": {
+      "ok": 100,
+      "error": 0,
+      "skipped": 0
+    }
+  },
+  "registry_snapshot": {
+    "path": "../data/brreg-enheter.csv.gz",
+    "sha256": "d3513fc2c0c15facb360568a2c92333a39f2059edfc29d0f1cf5f130e990ade3",
+    "rows_scanned": 1180410
+  },
+  "validation": {
+    "passed": true,
+    "exact_count": true,
+    "contract_problems": {}
+  }
+}

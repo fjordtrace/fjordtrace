@@ -2,7 +2,7 @@
 
 All runs used the one evaluator command (`signalpost --input <batch> --output-dir out --bulk <snapshot>`) on a home connection in Australia, with Windows 11, 16 workers and the default budget (45 min, 18 requests/company).
 Companies were drawn at random from the public 411,160-company universe with the starter kit's `select_entry_batch.py`: seed 101 for the 100, seed 1000 for the first 1,000, and seed 2026 for an unseen 1,000 used only for validation.
-The 100-company smoke test was run at commit `6ffeb4a`. The 1,000-company runs were at earlier commits, before the retry-after fix and the payroll-contradiction rule.
+The 100-company smoke test was run at commit `6ffeb4a`. The seed-1000 run predates the retry-after fix (35 workforce lookups were rate-limited); the unseen run includes that fix. Both predate the payroll-contradiction rule.
 
 | | 100 (smoke) | 1,000 (seed 1000) | 1,000 unseen (seed 2026) |
 |---|---|---|---|

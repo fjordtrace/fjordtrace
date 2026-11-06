@@ -49,6 +49,7 @@ class FetchResult:
     elapsed_ms: int = 0
     error: str | None = None
     state_hint: str | None = None  # "blocked" when refused by robots/budget/policy
+    headers: dict[str, str] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -212,6 +213,7 @@ class Fetcher:
                     int((time.monotonic() - started) * 1000),
                     None if resp.status_code < 400 else f"http_{resp.status_code}",
                     "blocked" if resp.status_code in (401, 403, 429, 451) else None,
+                    headers={k.lower(): v for k, v in resp.headers.items()},
                 )
             return FetchResult(url, current, None, retrieved_at, redirects=redirects, error="too_many_redirects")
         except UnsafeURL as exc:

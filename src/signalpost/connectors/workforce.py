@@ -118,7 +118,7 @@ class WorkforceConnector(Connector):
     def __init__(self) -> None:
         self.lane_workers = max(1, int(_env_float("SIGNALPOST_WORKFORCE_WORKERS", 6)))
         self.pacer = _Pacer(_env_float("SIGNALPOST_WORKFORCE_INTERVAL", 1.1))
-        self.max_retries = 3
+        self.max_retries = 8  # each wait is bounded by the time budget
         self.stats: dict[str, Any] = {"downloads": 0, "bytes": 0, "download_s": 0.0, "ocr_s": 0.0, "throttled": 0}
         self._stats_lock = threading.Lock()
 
@@ -148,7 +148,11 @@ class WorkforceConnector(Connector):
             with self._stats_lock:
                 self.stats["download_s"] += time.monotonic() - t
             if res.status == 429:
-                self.pacer.back_off(8.0 * (attempt + 1))
+                try:
+                    server_wait = float(res.headers.get("x-rate-limit-retry-after-seconds") or res.headers.get("retry-after") or 0)
+                except ValueError:
+                    server_wait = 0.0
+                self.pacer.back_off(max(server_wait + 1.0, 8.0 * min(attempt + 1, 3)))
                 with self._stats_lock:
                     self.stats["throttled"] += 1
                 continue

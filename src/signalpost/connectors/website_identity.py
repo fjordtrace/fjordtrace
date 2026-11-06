@@ -26,7 +26,7 @@ from .website_text import (
     DIRECTORY_DOMAINS, OTHER_SOCIAL, SOCIAL_DOMAINS, host_of, looks_like_domain, registered_domain, site_key,
 )
 
-ORIGIN_RANK = {"registry": 0, "subunit": 1, "wikidata": 2, "nav": 3, "email": 4, "guess": 5}
+ORIGIN_RANK = {"registry": 0, "subunit": 1, "wikidata": 2, "nav": 3, "email": 4, "guess": 5, "search": 6}
 DECLARED = {"registry", "subunit", "wikidata", "nav", "email"}
 LEVEL_RANK = {"exact": 0, "strong": 1, "registry_declared": 2, "source_declared": 3, "email_declared": 4,
               "shared": 5, "ambiguous": 6, "placeholder": 7, "unverified": 8, "blocked": 9, "unreachable": 10,
@@ -192,13 +192,13 @@ class Decision:
 
 def decide(cand: Candidate, ev: IdentityEvidence, group_member: bool, related: dict[str, str] | None = None) -> Decision:
     related = related or {}
-    if set(cand.origins) == {"guess"}:
-        # a name-derived domain is only ever a candidate: exact proof or nothing (never an ambiguous claim)
+    if set(cand.origins) <= {"guess", "search"}:
+        # a name-derived or search-nominated domain is only ever a candidate: exact proof or nothing
         if ev.ours_count and not ev.others and not ev.redirected_to:
             return Decision("exact", "organisation number shown on the site")
         if ev.ours_count and ev.others and ev.others.most_common(1)[0][1] < ev.ours_count and not ev.redirected_to:
             return Decision("exact", "organisation number shown on the site")
-        return Decision("unverified", "name-derived domain without this organisation number on the site")
+        return Decision("unverified", "name-derived or search-nominated domain without this organisation number on the site")
     if ev.ours_count:
         top_org, top = (ev.others.most_common(1)[0] if ev.others else (None, 0))
         if top >= ev.ours_count:

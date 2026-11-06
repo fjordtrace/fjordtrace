@@ -235,7 +235,8 @@ class Pipeline:
             "evidence": evidence,
             "changes": changes,
             "errors": merged.errors,
-            "operations": {"runtime_ms": int(self.company_ms.get(org, 0)), "third_party_cost_usd": 0.0},
+            "operations": {"runtime_ms": int(self.company_ms.get(org, 0)),
+                           "third_party_cost_usd": round(float(merged.facts.get("third_party_cost_usd", 0.0)), 6)},
         }
         if not provisional:
             try:
@@ -307,7 +308,7 @@ class Pipeline:
             "changes": sum(len(e["changes"]) for e in envs),
             "operations": {**self.budget.report(), "http_responses": self.fetcher.count, "bytes": self.fetcher.bytes,
                            "p50_ms": int(statistics.median(ms)), "p95_ms": int(ms[int(0.95 * (len(ms) - 1))]),
-                           "third_party_cost_usd": 0.0},
+                           "third_party_cost_usd": round(sum(e["operations"].get("third_party_cost_usd", 0.0) for e in envs), 4)},
             "connectors": self.connector_stats,
             "registry_snapshot": {"path": self.args.bulk, "sha256": getattr(self.snapshot, "file_sha256", None),
                                   "rows_scanned": getattr(self.snapshot, "rows_scanned", 0)},

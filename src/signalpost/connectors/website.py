@@ -34,9 +34,15 @@ from .website_parse import (
 from .website_text import (
     alias_phrases, compact, domain_label, find_orgnrs, guess_domains, handle_matches, mentions, name_core,
     name_domain_match, name_tokens, norm_space, copyright_entities, same_entity_name, phone_in_text, raw_contains_org, site_key, translit, window, GENERIC,
+    DIRECTORY_DOMAINS, OTHER_SOCIAL, SOCIAL_DOMAINS,
 )
 
 PHASE = "website"
+# Optional, evaluator-supplied search key (Builderr allows search to nominate candidates, never as evidence).
+SEARCH_KEY = os.environ.get("BRAVE_SEARCH_API_KEY") or os.environ.get("SIGNALPOST_BRAVE_KEY") or ""
+SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
+SEARCH_COST = float(os.environ.get("SIGNALPOST_SEARCH_COST_USD", "0.005") or 0.005)
+SEARCH_MIN_REVENUE = float(os.environ.get("SIGNALPOST_SEARCH_MIN_REVENUE", "1000000") or 1e6)
 MAX_REQ = int(os.environ.get("SIGNALPOST_WEBSITE_MAX_REQUESTS", "10") or 10)
 TIMEOUT = float(os.environ.get("SIGNALPOST_WEBSITE_TIMEOUT", "10") or 10)
 MAX_BYTES = 1_500_000
@@ -391,6 +397,18 @@ class _CompanyRun:
             results.append((cand, d, pages, ev))
             self.cand_log.append({"url": cand.url, "key": cand.key, "origins": cand.origins, "level": d.level,
                                   "reason": d.reason, **({"others_listing": cand.others_site} if cand.others_site else {})})
+        if not any(r[1].level in CONTENT_LEVELS for r in results) and self._search_allowed():
+            tried = {c.key for c, _, _, _ in results}
+            for cand in self.search_candidates()[:2]:
+                if cand.key in tried or not self._can_spend(3):
+                    continue
+                d, pages, ev = self.evaluate(cand)
+                results.append((cand, d, pages, ev))
+                self.cand_log.append({"url": cand.url, "key": cand.key, "origins": cand.origins, "level": d.level,
+                                      "reason": d.reason})
+                if d.level in CONTENT_LEVELS:
+                    guessed = False
+                    break
         self.out.facts["website_candidates"] = self.cand_log
         pick = best([(c, d) for c, d, _, _ in results])
         if pick is None:
@@ -420,6 +438,52 @@ class _CompanyRun:
             else:
                 self.finish_without_site("not_available", dec.reason)
         self.out.facts["website_requests"] = self.used
+
+    # ------------------------------------------------------------------ optional search (candidates only)
+    def _search_allowed(self) -> bool:
+        """Search runs only with an evaluator-supplied key, for companies likely to have a site."""
+        if not SEARCH_KEY or self.ctx.budget.soft_deadline_passed() or not self._can_spend(4):
+            return False
+        prof = self.profile or {}
+        try:
+            employees = int(float(prof.get("antallAnsatte") or 0))
+        except ValueError:
+            employees = 0
+        revenue = 0.0
+        for acc in self.ctx.registry.facts.get("accounts") or []:
+            if acc.get("account_type") == "SELSKAP":
+                revenue = max(revenue, float((acc.get("figures") or {}).get("revenue") or 0))
+        return employees > 0 or revenue >= SEARCH_MIN_REVENUE
+
+    def search_candidates(self) -> list[Candidate]:
+        """Brave Search API, used transiently: results only nominate domains, which must then show this
+        organisation number on the site (same gate as name guesses). Titles/snippets are not stored."""
+        city = (self.profile or {}).get("forretningsadresse.poststed") or (self.profile or {}).get("forretningsadresse.kommune") or ""
+        q = f"\"{name_core(self.name) or self.name}\" {city}".strip()
+        res = self.ctx.fetcher.get(SEARCH_URL, phase="search", params={"q": q, "country": "NO", "count": 8},
+                                   headers={"X-Subscription-Token": SEARCH_KEY, "Accept": "application/json"},
+                                   timeout=TIMEOUT)
+        self.out.facts["third_party_cost_usd"] = round(self.out.facts.get("third_party_cost_usd", 0.0) + SEARCH_COST, 6)
+        if not res.ok:
+            self.out.error("website.search", res.error or f"http_{res.status}")
+            return []
+        try:
+            urls = [r.get("url", "") for r in (res.json().get("web") or {}).get("results", [])]
+        except ValueError:
+            return []
+        out, seen = [], set()
+        for u in urls:
+            host = (urlsplit(u).hostname or "").lower()
+            dom = host[4:] if host.startswith("www.") else host
+            if not dom or dom in seen:
+                continue
+            seen.add(dom)
+            if any(dom == d or dom.endswith("." + d) for d in set(DIRECTORY_DOMAINS) | set(SOCIAL_DOMAINS) | set(OTHER_SOCIAL)):
+                continue
+            if self.counts["site"].get(dom, 0) or self.counts["email"].get(dom, 0):
+                continue  # registered to another organisation
+            out.append(Candidate(dom, f"https://{host}/", ["search"], {"search": u}))
+        return out
 
     def _guesses_allowed(self) -> bool:
         b = self.ctx.budget

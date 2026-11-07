@@ -118,6 +118,7 @@ class Pipeline:
         connectors = load_connectors(enabled)
         batch = BatchContext(self.run_id, self.orgs, self.fetcher, self.budget, snapshot, self.registry,
                              options=vars(self.args))
+        self.batch_shared = batch.shared
         def prepare(c) -> None:
             t = time.monotonic()
             try:
@@ -327,6 +328,8 @@ class Pipeline:
             "connectors": self.connector_stats,
             "connector_pass_started_s": getattr(self, "connector_stats_started_s", None),
             "connector_prepare_s": self.prepare_s,
+            "workforce_stats": {k: (round(v, 1) if isinstance(v, float) else v)
+                                for k, v in (getattr(self, "batch_shared", {}).get("workforce.stats") or {}).items()},
             "registry_snapshot": {"path": self.args.bulk, "sha256": getattr(self.snapshot, "file_sha256", None),
                                   "rows_scanned": getattr(self.snapshot, "rows_scanned", 0)},
             "validation": {"passed": not problems and len(envs) == len(self.inputs),

@@ -483,3 +483,28 @@ def test_gate_declared_by_email_nav_wikidata_with_legal_name():
     assert decide(cand(origins=("nav",)), IdentityEvidence(name_in_text=True), False).level == "strong"
     assert decide(cand(origins=("wikidata",)), IdentityEvidence(name_in_text=True), True).level == "source_declared"
     assert decide(cand(origins=("nav",)), IdentityEvidence(domain_match="exact"), False).level == "source_declared"
+
+
+def test_filter_news_drops_placeholders_products_and_template_series():
+    items = [(None, {"title": t, "url": u, "published": d}) for t, u, d in [
+        ("For private nr. 1", "https://d.no/for-private-nr-1/", "2025-02-24"),
+        ("For private nr. 2", "https://d.no/for-private-nr-2/", "2025-02-24"),
+        ("Hello world!", "https://e.no/hello-world/", "2026-02-13"),
+        ("Testinnlegg", "https://d.no/testinnlegg/", "2025-02-24"),
+        ("Genser med fisker", "https://h.no/produkter/strikkegenser/", "2025-02-17"),
+        ("Erfaringer", "https://a.no/category/eiendom/", "2023-03-14"),
+        ("Vi søker: ELEKTRIKERE", "https://s.no/2025/10/16/vi-soker-elektrikere/", "2025-10-16"),
+        ("Vi søker: AUTOMATIKERE", "https://s.no/2025/10/16/vi-soker-automatikere/", "2025-10-16"),
+        ("Kvartalsrapport Q3 2026", "https://x.no/q3/", "2026-10-01"),
+    ]]
+    assert [i["title"] for _, i in W.filter_news(items)] == [
+        "Vi søker: ELEKTRIKERE", "Vi søker: AUTOMATIKERE", "Kvartalsrapport Q3 2026"]
+
+
+def test_dedupe_locations_prefers_registered_street_then_shortest():
+    from signalpost.connectors.website_text import compact
+    mk = lambda s, z="1721": (None, {"value": {"street": s, "postal_code": z, "city": "Sarpsborg"}, "method": "regex_address"})
+    c = [mk("Arbeidsrett Hjalmar Wessels vei 10"), mk("Hjalmar Wessels vei 10"), mk("Wessels vei 10"), mk("Storgata 1", "0150")]
+    got = lambda reg: [x[1]["value"]["street"] for x in W.dedupe_locations(c, reg)]
+    assert got({compact("Hjalmar Wessels vei 10")}) == ["Hjalmar Wessels vei 10", "Storgata 1"]
+    assert got(set()) == ["Wessels vei 10", "Storgata 1"]

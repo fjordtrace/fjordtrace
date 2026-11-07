@@ -811,16 +811,20 @@ class _CompanyRun:
                 zips.add(a["postnummer"])
             if a.get("poststed"):
                 towns.add(translit(a["poststed"]))
+        streets = {compact((self.profile.get(f"{p}.adresse") or "").split(",")[0]) for p in ("forretningsadresse", "postadresse")}
+        streets |= {compact(((w.get("address") or {}).get("adresse") or "").split(",")[0]) for w in self.workplaces}
+        streets.discard("")
+        cands = [(p, c) for p in pages for c in location_candidates(p, zips, towns)]
+        cands = dedupe_locations(cands, streets)
         seen = set()
-        for p in pages:
-            for c in location_candidates(p, zips, towns):
-                k = location_key(c["value"])
-                if k in seen or len(seen) >= 5:
-                    continue
-                seen.add(k)
-                e = self.ev(p, c["span"], c["method"], c["locator"])
-                self.out.add(make_claim("site_location", c["value"], [e], discriminator=k, confidence=0.85,
-                                        note="address shown on the verified website"), e)
+        for p, c in cands:
+            k = location_key(c["value"])
+            if k in seen or len(seen) >= 5:
+                continue
+            seen.add(k)
+            e = self.ev(p, c["span"], c["method"], c["locator"])
+            self.out.add(make_claim("site_location", c["value"], [e], discriminator=k, confidence=0.85,
+                                    note="address shown on the verified website"), e)
 
     def publish_socials(self, pages: list[Page], compacts: list[str]) -> int:
         per: Counter = Counter()
@@ -857,6 +861,7 @@ class _CompanyRun:
         for res, it in self._feed_items:
             if site_key(it["url"]) == key and mentions(it["title"] + " " + it["body"], phrases):
                 items.append((res, it))
+        items = filter_news(items)
         items.sort(key=lambda x: x[1]["published"], reverse=True)
         n, seen = 0, set()
         for src, it in items:
@@ -893,6 +898,52 @@ class _CompanyRun:
                 self.out.add(make_claim("job_posting", v, [e], discriminator=disc, confidence=0.85,
                                         effective_at=j.get("date_posted"),
                                         note="JobPosting structured data on the verified website"), e)
+
+
+def dedupe_locations(cands: list, registry_streets: set[str]) -> list:
+    """The address regex can swallow a word before the street ("Arbeidsrett Hjalmar Wessels vei 10") or cut one
+    off ("Wessels vei 10"). Among candidates with the same postal code where one street ends with another, keep the
+    one that equals a registered street; otherwise the shortest, which is incomplete at worst, never wrong."""
+    def k(c):
+        v = c["value"]
+        return v.get("postal_code", ""), compact(v.get("street", ""))
+    out = []
+    for i, (p, c) in enumerate(cands):
+        zip_, st = k(c)
+        family = [k(c2)[1] for _, c2 in cands if k(c2)[0] == zip_ and k(c2)[1] and
+                  (k(c2)[1].endswith(st) or st.endswith(k(c2)[1]))]
+        if len(set(family)) <= 1 or c.get("method") == "jsonld_postaladdress":
+            out.append((p, c))
+            continue
+        exact = [s for s in family if s in registry_streets]
+        winner = exact[0] if exact else min(family, key=len)
+        if st == winner:
+            out.append((p, c))
+    return out
+
+
+_PLACEHOLDER_TITLES = re.compile(
+    r"^(hello world!?|hei verden!?|testinnlegg|test ?post|test|sample page|eksempelside|lorem ipsum.*|"
+    r"uncategori[sz]ed|ukategorisert|auto draft|ny side|new page)$", re.I)
+_NOT_NEWS_PATH = re.compile(
+    r"/(category|categories|kategori|kategorier|tag|tags|stikkord|produkt|produkter|product|products|shop|butikk|"
+    r"nettbutikk|kampanjer|author|forfatter|page|side)(/|$)", re.I)
+
+
+def filter_news(items: list) -> list:
+    """Drop what is not dated public activity: CMS placeholders ("Hello world!", "Testinnlegg"), product,
+    category and tag pages, and numbered template series ("For private nr. 1/2/3") published on one day."""
+    keep = []
+    for src, it in items:
+        title = norm_space(it.get("title") or "")
+        path = urlsplit(it.get("url") or "").path
+        if _PLACEHOLDER_TITLES.match(title.strip(" .")) or _NOT_NEWS_PATH.search(path):
+            continue
+        keep.append((src, it))
+    stem = lambda s: re.sub(r"[\s\-–.:#]*(nr\.?|no\.?|del|part)?[\s\-–.:#]*\d+$", "", norm_space(s).lower()).strip()
+    series = Counter((stem(it.get("title") or ""), it.get("published")) for _, it in keep)
+    return [(src, it) for src, it in keep if series[(stem(it.get("title") or ""), it.get("published"))] < 2
+            or stem(it.get("title") or "") == norm_space(it.get("title") or "").lower()]
 
 
 def _today() -> str:

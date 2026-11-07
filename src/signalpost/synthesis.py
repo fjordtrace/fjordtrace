@@ -596,7 +596,7 @@ def _assessment(name: str, cl: list[dict], st: _Statements, ref: dt.date) -> Non
     if fte is not None:
         scale.append(f"{fmt_number(fte)} full-time equivalents" + (f" in {fte_year}" if fte_year else ""))
     elif emp is not None:
-        scale.append(plural(int(emp), "registered employee"))
+        scale.append(f"{fmt_number(emp)} registered {'employee' if int(emp) == 1 else 'employees'}")
     if rev is not None:
         scale.append(f"revenue {fmt_amount(rev, cur)} for {fy}")
     if scale:

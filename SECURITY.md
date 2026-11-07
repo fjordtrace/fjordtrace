@@ -11,6 +11,7 @@
 | GLEIF LEI API (api.gleif.org) | open API, no key | CC0 | LEI records whose registeredAs is the organisation number |
 | Brønnøysundregistrene Støtteregisteret API | open API, no key | NLOD 2.0 | public support awards to the organisation number |
 | TED search API (api.ted.europa.eu) | open API, no key | free reuse (Decision 2011/833/EU) | contract award notices naming the organisation number as winner |
+| Mattilsynet smilefjes open data (smilefjes.mattilsynet.no/api/tilsyn.csv) | open file, no key | NLOD 2.0 | food-safety inspections by organisation number |
 | DiBK sentral godkjenning (sgregister.dibk.no/enterprises/) | public page, robots.txt allows /enterprises/ (not /api/ or /search) | public register | central approval for building work |
 
 No LinkedIn, Meta, Glassdoor, Indeed or Google scraping. No unofficial clients. Search engines are not used

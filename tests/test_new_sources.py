@@ -189,3 +189,33 @@ def test_procurement_attributes_by_exact_norwegian_winner_id():
     batch, c = ctx(Fake({"notices": []}), OTHER)
     conn.prepare(batch)
     assert conn.run(c).family_states["procurement"]["state"] == "not_available"
+
+
+SMILE = ("tilsynsobjektid;orgnummer;navn;adrlinje1;adrlinje2;postnr;poststed;tilsynid;sakref;status;dato;total_karakter;"
+         "tilsynsbesoektype;tema1_no;tema1_nn;karakter1;tema2_no;tema2_nn;karakter2;tema3_no;tema3_nn;karakter3;tema4_no;tema4_nn;karakter4\n"
+         "a;974760673;Egon Restaurant;Karl Johans gate 37;;0162;Oslo;T1;2016/1;0;05012016;1;0;Rutiner og ledelse;x;0;Lokaler;x;0;Mat;x;0;Merking;x;1\n"
+         "b;974760673;Egon Restaurant;Karl Johans gate 37;;0162;Oslo;T2;2017/1;0;03022017;2;0;Rutiner og ledelse;x;2;Lokaler;x;0;Mat;x;0;Merking;x;0\n"
+         "c;999999999;Other;Gate 1;;0001;Oslo;T3;2017/2;0;03022017;0;0;;;;;;;;;;;;\n")
+
+
+def test_food_inspections_match_company_or_its_workplaces():
+    from signalpost.connectors.food_inspections import FoodInspectionsConnector
+
+    class F(Fake):
+        def get(self, url, phase, **kw):
+            self.calls.append((url, kw))
+            return FetchResult(url, url, 200, utcnow(), SMILE.encode(), "text/csv")
+
+    f = F({})
+    reg = Contribution()
+    reg.facts["workplaces"] = [{"organisation_number": "974760673"}]
+    batch = BatchContext("t", [ORG], f, f.budget, None, {ORG: reg})
+    conn = FoodInspectionsConnector()
+    conn.prepare(batch)
+    out = conn.run(CompanyContext(ORG, batch, reg))
+    assert [c["value"]["inspection_id"] for c in out.claims] == ["T2", "T1"]
+    v = out.claims[0]["value"]
+    assert v["date"] == "2017-02-03" and v["grade"] == 2 and v["workplace_orgnr"] == "974760673"
+    assert len(f.calls) == 1
+    other = Contribution()
+    assert conn.run(CompanyContext(OTHER, batch, other)).family_states["food_inspections"]["state"] == "not_available"

@@ -15,6 +15,7 @@ CONNECTORS = [
     ("signalpost.connectors.public_support", "PublicSupportConnector"),
     ("signalpost.connectors.central_approval", "CentralApprovalConnector"),
     ("signalpost.connectors.procurement", "ProcurementConnector"),
+    ("signalpost.connectors.food_inspections", "FoodInspectionsConnector"),
 ]
 
 

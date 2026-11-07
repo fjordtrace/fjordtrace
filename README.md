@@ -62,7 +62,7 @@ diffs against an earlier output instead. See [REFRESH.md](REFRESH.md).
 | `--requests-per-company` | 18 | `SIGNALPOST_REQUESTS_PER_COMPANY` |
 | `--soft-stop` | 0.85 | `SIGNALPOST_SOFT_STOP` |
 | `--workers` | 16 | `SIGNALPOST_WORKERS` |
-| `--connectors` | all (`website,nav_jobs,workforce,wikidata,lei,public_support,central_approval,procurement`) | `SIGNALPOST_CONNECTORS` |
+| `--connectors` | all (`website,nav_jobs,workforce,wikidata,lei,public_support,central_approval,procurement,food_inspections`) | `SIGNALPOST_CONNECTORS` |
 | OCR on/off, threads | on, 2 | `SIGNALPOST_OCR`, `SIGNALPOST_OCR_THREADS` |
 
 When time or requests run out, the remaining sources are reported as `blocked` with the reason, never
@@ -85,7 +85,8 @@ batch ─► Brønnøysund: entity, roles, subunits, filed accounts (3 years), g
       ├─► GLEIF: LEI records registered to the organisation number (batched, 100 per request)
       ├─► Støtteregisteret: public support awards whose recipient is the organisation number
       ├─► DiBK: central approval for building work, from the public page keyed by organisation number
-      └─► TED: EU/EEA contract award notices whose winner identifier is the organisation number (batched)
+      ├─► TED: EU/EEA contract award notices whose winner identifier is the organisation number (batched)
+      └─► Mattilsynet: food-safety inspections of the company or its registered workplaces (one open file)
       ─► dedupe ─► refresh diff ─► cited summary ─► envelopes.jsonl + run-report.json + report.html
 ```
 

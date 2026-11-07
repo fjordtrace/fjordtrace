@@ -29,7 +29,7 @@ FAMILY_OF_FIELD = {
     "social_profile": "social_profiles", "job_posting": "jobs", "news_item": "news_activity",
     "public_mention": "news_activity", "workforce_fte": "workforce", "wikidata_item": "wikidata",
     "lei_record": "lei", "public_support": "public_support", "central_approval": "central_approval",
-    "procurement_award": "procurement",
+    "procurement_award": "procurement", "food_inspection": "food_inspections",
 }
 FAMILY_SECTION = {
     "legal_identity": "legal_identity_and_brand", "annual_accounts": "annual_accounts",
@@ -38,6 +38,7 @@ FAMILY_SECTION = {
     "social_profiles": "website_and_profiles", "wikidata": "website_and_profiles", "jobs": "hiring_and_activity",
     "news_activity": "hiring_and_activity", "lei": "legal_identity_and_brand", "public_support": "annual_accounts",
     "central_approval": "legal_identity_and_brand", "procurement": "hiring_and_activity",
+    "food_inspections": "hiring_and_activity",
 }
 STATE_RANK = {"available": 0, "blocked": 1, "failed": 2, "ambiguous": 3, "not_available": 4, "not_applicable": 5}
 

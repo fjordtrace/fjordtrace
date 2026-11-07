@@ -31,7 +31,7 @@ def _txt(el: Any) -> str:
 def parse_page(html: bytes, org: str) -> dict[str, Any] | None:
     """Fields from an enterprise page, or None when the page is not about this organisation number."""
     try:
-        doc = lxml.html.fromstring(html)
+        doc = lxml.html.fromstring(html.decode("utf-8", errors="replace") if isinstance(html, bytes) else html)
     except (ValueError, lxml.etree.ParserError):
         return None
     pairs: dict[str, str] = {}

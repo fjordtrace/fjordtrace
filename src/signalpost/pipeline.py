@@ -129,6 +129,7 @@ class Pipeline:
 
         for c in connectors:
             self.connector_stats[c.name] = {"ok": 0, "error": 0, "skipped": 0}
+        self.connector_stats_started_s = round(self.budget.elapsed(), 1)
         # batch-level preparations (index updates, batched lookups, open-data downloads) are independent
         with ThreadPoolExecutor(max_workers=max(1, len(connectors))) as prep_pool:
             list(prep_pool.map(prepare, connectors))
@@ -170,6 +171,7 @@ class Pipeline:
             for f in done:
                 conn, org, res, status, ms = f.result()
                 self.connector_stats[conn.name][status] += 1
+                self.connector_stats[conn.name]["finished_at_s"] = round(self.budget.elapsed(), 1)
                 if res is not None:
                     self.contrib[org].merge(res)
                 self.company_ms[org] = self.company_ms.get(org, 0.0) + ms
@@ -323,6 +325,8 @@ class Pipeline:
                            "p50_ms": int(statistics.median(ms)), "p95_ms": int(ms[int(0.95 * (len(ms) - 1))]),
                            "third_party_cost_usd": round(sum(e["operations"].get("third_party_cost_usd", 0.0) for e in envs), 4)},
             "connectors": self.connector_stats,
+            "connector_pass_started_s": getattr(self, "connector_stats_started_s", None),
+            "connector_prepare_s": self.prepare_s,
             "registry_snapshot": {"path": self.args.bulk, "sha256": getattr(self.snapshot, "file_sha256", None),
                                   "rows_scanned": getattr(self.snapshot, "rows_scanned", 0)},
             "validation": {"passed": not problems and len(envs) == len(self.inputs),

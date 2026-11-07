@@ -166,3 +166,26 @@ def test_central_approval_connector_states():
     assert f.calls[0][1]["check_robots"] is True
     _, c = ctx(f, ORG)
     assert CentralApprovalConnector().run(c).family_states["central_approval"]["state"] == "not_available"
+
+
+def test_procurement_attributes_by_exact_norwegian_winner_id():
+    from signalpost.connectors import procurement as T
+    body = {"notices": [
+        {"publication-number": "43081-2024", "publication-date": "2024-01-22Z", "notice-type": "can-standard",
+         "notice-title": {"eng": ["Norway – Construction work – New fire station"]}, "buyer-name": {"eng": ["NTNU"]},
+         "winner-identifier": ["923 609 016", "999999999"], "winner-country": ["NOR"]},
+        {"publication-number": "1-2024", "publication-date": "2024-02-01Z", "winner-identifier": ["923609016"],
+         "winner-country": ["SWE"]},  # same digits, foreign winner: not attributed
+    ]}
+    f = Fake(body)
+    batch, c = ctx(f)
+    conn = T.ProcurementConnector()
+    conn.prepare(batch)
+    out = conn.run(c)
+    assert [cl["value"]["publication_number"] for cl in out.claims] == ["43081-2024"]
+    v = out.claims[0]["value"]
+    assert v["title"] == "New fire station" and v["buyer"] == "NTNU" and v["published"] == "2024-01-22"
+    assert f.calls[0][1]["method"] == "POST" and "923609016" in f.calls[0][1]["json_body"]["query"]
+    batch, c = ctx(Fake({"notices": []}), OTHER)
+    conn.prepare(batch)
+    assert conn.run(c).family_states["procurement"]["state"] == "not_available"

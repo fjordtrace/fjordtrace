@@ -42,7 +42,7 @@ FIELD_LABEL = {
     "site_person": "Person named on website", "job_posting": "Job ad", "news_item": "News item",
     "public_mention": "Public mention", "wikidata_item": "Wikidata entry",
     "lei_record": "Legal Entity Identifier (LEI)", "public_support": "Public support award",
-    "central_approval": "Central approval (building work)",
+    "central_approval": "Central approval (building work)", "procurement_award": "Public contract award (TED)",
 }
 
 # availability family -> plain-words label. Mirrors pipeline.FAMILY_SECTION (kept local: pipeline is heavy to import).
@@ -61,6 +61,7 @@ FAMILY_LABEL = {
     "lei": "Legal Entity Identifier (LEI) record",
     "public_support": "public support awards (Støtteregisteret)",
     "central_approval": "central approval for building work (DiBK)",
+    "procurement": "public contract awards (TED)",
 }
 FAMILY_SECTION = {
     "legal_identity": "legal_identity_and_brand", "annual_accounts": "annual_accounts", "workforce": "annual_accounts",
@@ -68,7 +69,7 @@ FAMILY_SECTION = {
     "group_relation": "leadership_and_workplaces", "official_website": "website_and_profiles",
     "social_profiles": "website_and_profiles", "wikidata": "website_and_profiles", "jobs": "hiring_and_activity",
     "news_activity": "hiring_and_activity", "lei": "legal_identity_and_brand", "public_support": "annual_accounts",
-    "central_approval": "legal_identity_and_brand",
+    "central_approval": "legal_identity_and_brand", "procurement": "hiring_and_activity",
 }
 FAMILY_OF_FIELD = {
     **{f: "legal_identity" for f in ("legal_name", "legal_form", "registration_status", "registered_address",
@@ -82,6 +83,7 @@ FAMILY_OF_FIELD = {
     "social_profile": "social_profiles", "job_posting": "jobs", "news_item": "news_activity",
     "public_mention": "news_activity", "workforce_fte": "workforce", "wikidata_item": "wikidata",
     "lei_record": "lei", "public_support": "public_support", "central_approval": "central_approval",
+    "procurement_award": "procurement",
 }
 # families every full run checks; a family missing from env["availability"] was not checked at all
 EXPECTED_FAMILIES = tuple(FAMILY_LABEL)
@@ -428,6 +430,11 @@ def describe_claim(c: dict, full: bool = True) -> str:
             s += f" of {amt}"
         if d.get("granting_body"):
             s += f" from {d['granting_body']}"
+        return s
+    if f == "procurement_award" and d:
+        s = f"{d.get('published') or 'undated'}: {d.get('title') or d.get('publication_number')}"
+        if d.get("buyer"):
+            s += f" (buyer: {d['buyer']})"
         return s
     if f == "central_approval" and d:
         s = "valid central approval" if d.get("approved") else "central approval"
@@ -985,6 +992,18 @@ def _status(cl: list[dict], st: _Statements) -> None:
     st.add("status", text, [rs])
 
 
+def _procurement(cl: list[dict], st: _Statements) -> None:
+    awards = sorted(by_field(cl, "procurement_award"), key=lambda c: str((c.get("value") or {}).get("published") or ""))
+    if not awards:
+        return
+    buyers = list(dict.fromkeys((c.get("value") or {}).get("buyer") for c in awards if (c.get("value") or {}).get("buyer")))
+    text = f"TED (the EU/EEA procurement journal) lists {plural(len(awards), 'contract award notice')} naming it as a winner"
+    if buyers:
+        text += f", for buyers such as {join_words(buyers, 3)}"
+    text += f". Most recent: {describe_claim(awards[-1])}."
+    st.add("recent_activity", text, awards)
+
+
 def _recent(cl: list[dict], st: _Statements) -> None:
     news = sorted(by_field(cl, "news_item"), key=lambda c: str((c.get("value") or {}).get("published") or ""), reverse=True)
     if news:
@@ -1163,6 +1182,7 @@ def summarise(env: dict) -> dict:
         _group(cl, st)
         _status(cl, st)
         _recent(cl, st)
+        _procurement(cl, st)
     unknowns = _unknowns(env) + unknowns
     return {
         "generated_by": GENERATED_BY,

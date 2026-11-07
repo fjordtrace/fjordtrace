@@ -61,6 +61,7 @@ FIELDS: dict[str, tuple[str, bool, str]] = {
     "lei_record": ("legal_identity_and_brand", True, "identifier"),
     "public_support": ("annual_accounts", True, "public_funding"),
     "central_approval": ("legal_identity_and_brand", True, "licence"),
+    "procurement_award": ("hiring_and_activity", True, "public_contract"),
 }
 
 

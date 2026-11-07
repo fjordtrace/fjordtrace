@@ -1,8 +1,11 @@
 # Known limitations
 
 - **Website recall is bounded without a search provider.** About 11% of companies list a website in the
-  register. Registry e-mail domains, NAV, Wikidata and name-derived domains add more, but sites with no
-  link to any of these are not found unless a search key is supplied.
+  register. Registry e-mail domains, NAV, Wikidata and name-derived domains (.no, .com, the name without
+  generic words) add more, but sites with no link to any of these are not found unless a search key is
+  supplied. A name-derived domain counts only with this organisation number on the site, the full legal name
+  with its company form when the name is unique in the register (needs the bulk snapshot), or the legal name
+  plus a registered role holder.
 - **JavaScript-only sites** are detected and reported, but not rendered (there is no browser dependency).
 - **Robots.txt** is honoured. Sites that disallow all agents are reported as `blocked`.
 - **Workforce:** companies that file a full annual report instead of Brønnøysund's standard notes
@@ -18,3 +21,7 @@
   restricted scraping.
 - **Social metrics** (followers, posts) are not collected. Handles come only from the verified site or
   Wikidata.
+- **Coverage of the extra official sources is naturally small:** LEI records (~11% of companies),
+  Støtteregisteret awards (~15%), DiBK central approval (~3%), TED contract awards (~2%) and Mattilsynet
+  inspections (~1%). Absence is reported as `not_available` with the source checked, never as a negative fact.
+  At most 25 support awards, 15 TED notices and 10 inspections are published per company (most recent first).

@@ -1,4 +1,4 @@
-# Signalpost research agent
+# Fjordtrace: Signalpost research agent
 
 Give it a batch of Norwegian organisation numbers. It returns **exactly one terminal envelope per input
 row**. Each envelope carries the legal identity, filed accounts, leadership, registered workplaces,

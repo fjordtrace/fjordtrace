@@ -1,0 +1,234 @@
+{
+  "run_id": "run-20261107T114204Z",
+  "agent_version": "0.1.0",
+  "started_at": "2026-11-07T11:42:04Z",
+  "completed_at": "2026-11-07T12:12:55Z",
+  "inputs": 1000,
+  "unique_valid_inputs": 1000,
+  "emitted_envelopes": 1000,
+  "envelope_states": {
+    "available": 1000
+  },
+  "family_states": {
+    "group_relation": {
+      "not_applicable": 933,
+      "available": 67
+    },
+    "wikidata": {
+      "not_available": 986,
+      "available": 14
+    },
+    "food_inspections": {
+      "not_available": 989,
+      "available": 11
+    },
+    "procurement": {
+      "not_available": 993,
+      "available": 7
+    },
+    "lei": {
+      "not_available": 866,
+      "available": 134
+    },
+    "jobs": {
+      "not_available": 992,
+      "available": 8
+    },
+    "workforce": {
+      "available": 964,
+      "not_available": 19,
+      "ambiguous": 17
+    },
+    "public_support": {
+      "not_available": 903,
+      "available": 97
+    },
+    "central_approval": {
+      "not_available": 976,
+      "available": 24
+    },
+    "official_website": {
+      "not_available": 741,
+      "ambiguous": 57,
+      "available": 138,
+      "failed": 27,
+      "blocked": 37
+    },
+    "social_profiles": {
+      "not_available": 846,
+      "available": 67,
+      "ambiguous": 23,
+      "failed": 27,
+      "blocked": 37
+    },
+    "news_activity": {
+      "not_available": 888,
+      "ambiguous": 24,
+      "available": 24,
+      "failed": 27,
+      "blocked": 37
+    },
+    "legal_identity": {
+      "available": 1000
+    },
+    "annual_accounts": {
+      "available": 1000
+    },
+    "roles": {
+      "available": 995,
+      "not_available": 5
+    },
+    "workplaces": {
+      "available": 755,
+      "not_available": 245
+    }
+  },
+  "claims_available": 21953,
+  "claims_by_field": {
+    "role": 2871,
+    "annual_accounts": 2791,
+    "auditor": 1051,
+    "industry": 1000,
+    "legal_form": 1000,
+    "legal_name": 1000,
+    "registration_status": 1000,
+    "activity_description": 995,
+    "annual_account_filing": 995,
+    "registered_date": 995,
+    "registered_address": 994,
+    "founded_date": 982,
+    "workforce_fte": 964,
+    "statutory_purpose": 962,
+    "share_capital": 931,
+    "workplace": 794,
+    "public_support": 645,
+    "registry_contact": 349,
+    "contact_detail": 339,
+    "postal_address": 217,
+    "official_website": 139,
+    "registered_employees": 134,
+    "lei_record": 134,
+    "site_location": 122,
+    "social_profile": 118,
+    "group_relation": 91,
+    "company_description": 87,
+    "public_brand": 81,
+    "news_item": 69,
+    "food_inspection": 33,
+    "central_approval": 24,
+    "procurement_award": 20,
+    "wikidata_item": 14,
+    "job_posting": 12
+  },
+  "companies_with_external_claim": 985,
+  "changes": 16,
+  "operations": {
+    "max_requests": 18000,
+    "requests_used": 9079,
+    "requests_by_phase": {
+      "registry": 4067,
+      "wikidata": 21,
+      "lei": 10,
+      "procurement": 10,
+      "food_inspections": 1,
+      "nav_jobs": 18,
+      "workforce": 1008,
+      "website": 1940,
+      "public_support": 1000,
+      "central_approval": 1004
+    },
+    "requests_refused_by_phase": {},
+    "time_budget_s": 2700.0,
+    "elapsed_s": 1850.66,
+    "http_responses": 8806,
+    "bytes": 508163347,
+    "p50_ms": 17187,
+    "p95_ms": 34124,
+    "third_party_cost_usd": 0.0
+  },
+  "connectors": {
+    "website": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 673.9
+    },
+    "nav_jobs": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 178.3
+    },
+    "workforce": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 1817.7
+    },
+    "wikidata": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 176.6
+    },
+    "lei": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 176.6
+    },
+    "public_support": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 262.6
+    },
+    "central_approval": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 778.3
+    },
+    "procurement": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 176.6
+    },
+    "food_inspections": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 177.0
+    }
+  },
+  "connector_pass_started_s": 165.7,
+  "connector_prepare_s": {
+    "workforce": 0.0,
+    "public_support": 0.0,
+    "central_approval": 0.0,
+    "nav_jobs": 1.4,
+    "website": 1.8,
+    "food_inspections": 7.5,
+    "lei": 7.6,
+    "procurement": 8.3,
+    "wikidata": 10.3
+  },
+  "workforce_stats": {
+    "downloads": 1000,
+    "bytes": 323919761,
+    "download_s": 2418.0,
+    "ocr_s": 272.2,
+    "throttled": 8
+  },
+  "registry_snapshot": {
+    "path": "../data/brreg-enheter.csv.gz",
+    "sha256": "d3513fc2c0c15facb360568a2c92333a39f2059edfc29d0f1cf5f130e990ade3",
+    "rows_scanned": 1180410
+  },
+  "validation": {
+    "passed": true,
+    "exact_count": true,
+    "contract_problems": {}
+  }
+}

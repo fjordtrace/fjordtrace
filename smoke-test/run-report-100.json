@@ -1,8 +1,8 @@
 {
-  "run_id": "smoke-100-6ffeb4a",
+  "run_id": "run-20261107T121321Z",
   "agent_version": "0.1.0",
-  "started_at": "2026-11-06T15:58:16Z",
-  "completed_at": "2026-11-06T16:01:51Z",
+  "started_at": "2026-11-07T12:13:21Z",
+  "completed_at": "2026-11-07T12:16:32Z",
   "inputs": 100,
   "unique_valid_inputs": 100,
   "emitted_envelopes": 100,
@@ -14,33 +14,53 @@
       "not_applicable": 91,
       "available": 9
     },
+    "lei": {
+      "not_available": 93,
+      "available": 7
+    },
+    "food_inspections": {
+      "not_available": 99,
+      "available": 1
+    },
     "wikidata": {
+      "available": 1,
+      "not_available": 99
+    },
+    "procurement": {
       "available": 1,
       "not_available": 99
     },
     "jobs": {
       "not_available": 100
     },
+    "public_support": {
+      "not_available": 92,
+      "available": 8
+    },
+    "central_approval": {
+      "not_available": 98,
+      "available": 2
+    },
     "official_website": {
-      "available": 10,
-      "not_available": 81,
-      "blocked": 1,
-      "ambiguous": 6,
-      "failed": 2
+      "available": 11,
+      "not_available": 75,
+      "blocked": 3,
+      "failed": 6,
+      "ambiguous": 5
     },
     "social_profiles": {
       "available": 6,
-      "not_available": 86,
-      "blocked": 1,
-      "ambiguous": 5,
-      "failed": 2
+      "not_available": 81,
+      "blocked": 3,
+      "failed": 6,
+      "ambiguous": 4
     },
     "news_activity": {
-      "not_available": 91,
-      "blocked": 1,
-      "available": 1,
-      "ambiguous": 5,
-      "failed": 2
+      "not_available": 85,
+      "blocked": 3,
+      "available": 2,
+      "failed": 6,
+      "ambiguous": 4
     },
     "workforce": {
       "not_available": 3,
@@ -60,7 +80,7 @@
       "not_available": 25
     }
   },
-  "claims_available": 2050,
+  "claims_available": 2149,
   "claims_by_field": {
     "annual_accounts": 277,
     "role": 265,
@@ -78,61 +98,124 @@
     "auditor": 95,
     "share_capital": 94,
     "workplace": 79,
+    "public_support": 70,
     "registry_contact": 30,
     "contact_detail": 23,
     "postal_address": 17,
-    "official_website": 10,
+    "official_website": 11,
     "public_brand": 10,
     "site_location": 10,
     "social_profile": 10,
     "group_relation": 10,
     "company_description": 9,
+    "procurement_award": 9,
+    "food_inspection": 9,
     "registered_employees": 8,
-    "news_item": 3,
+    "lei_record": 7,
+    "news_item": 4,
+    "central_approval": 2,
     "wikidata_item": 1
   },
-  "companies_with_external_claim": 98,
+  "companies_with_external_claim": 99,
   "changes": 0,
   "operations": {
     "max_requests": 1800,
-    "requests_used": 626,
+    "requests_used": 911,
     "requests_by_phase": {
       "registry": 409,
       "wikidata": 2,
-      "nav_jobs": 3,
-      "website": 112,
-      "workforce": 100
+      "procurement": 1,
+      "lei": 1,
+      "food_inspections": 1,
+      "nav_jobs": 5,
+      "workforce": 100,
+      "website": 188,
+      "public_support": 100,
+      "central_approval": 104
     },
     "requests_refused_by_phase": {},
     "time_budget_s": 2700.0,
-    "elapsed_s": 215.17,
-    "http_responses": 612,
-    "bytes": 39524358,
-    "p50_ms": 12531,
-    "p95_ms": 20764,
+    "elapsed_s": 191.7,
+    "http_responses": 877,
+    "bytes": 61424820,
+    "p50_ms": 21140,
+    "p95_ms": 37656,
     "third_party_cost_usd": 0.0
   },
   "connectors": {
     "website": {
       "ok": 100,
       "error": 0,
-      "skipped": 0
+      "skipped": 0,
+      "finished_at_s": 147.4
     },
     "nav_jobs": {
       "ok": 100,
       "error": 0,
-      "skipped": 0
+      "skipped": 0,
+      "finished_at_s": 74.7
     },
     "workforce": {
       "ok": 100,
       "error": 0,
-      "skipped": 0
+      "skipped": 0,
+      "finished_at_s": 191.2
     },
     "wikidata": {
       "ok": 100,
       "error": 0,
-      "skipped": 0
+      "skipped": 0,
+      "finished_at_s": 73.1
+    },
+    "lei": {
+      "ok": 100,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 73.1
+    },
+    "public_support": {
+      "ok": 100,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 84.4
+    },
+    "central_approval": {
+      "ok": 100,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 134.6
+    },
+    "procurement": {
+      "ok": 100,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 73.1
+    },
+    "food_inspections": {
+      "ok": 100,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 73.3
     }
+  },
+  "connector_pass_started_s": 65.9,
+  "connector_prepare_s": {
+    "workforce": 0.0,
+    "public_support": 0.0,
+    "central_approval": 0.0,
+    "website": 1.9,
+    "nav_jobs": 2.1,
+    "procurement": 2.2,
+    "lei": 2.6,
+    "wikidata": 2.9,
+    "food_inspections": 7.1
+  },
+  "workforce_stats": {
+    "downloads": 100,
+    "bytes": 30221788,
+    "download_s": 232.2,
+    "ocr_s": 29.3,
+    "throttled": 0
   },
   "registry_snapshot": {
     "path": "../data/brreg-enheter.csv.gz",

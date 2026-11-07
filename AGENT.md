@@ -4,11 +4,14 @@
    A brand, domain, handle or ad is only a candidate until it is tied back to that number.
 2. **Exact-by-construction sources come first.** These are filed accounts and annual-account copies
    (fetched by org number), roles, subunits, group structure, NAV ads (employer org number = the company
-   or one of its registered subunits) and Wikidata (P2333 = org number).
+   or one of its registered subunits), Wikidata (P2333 = org number), GLEIF LEI records (registeredAs = org
+   number, Norwegian entity) and Støtteregisteret awards (recipient org number = this organisation).
 3. **Website identity levels:**
    - `exact`: this org number is shown on the site and no other number appears as often.
-   - `strong`: declared by an official/open source with the name and a registered contact detail on the
-     site, or a name-derived domain with the full legal name and a registered phone, e-mail or address.
+   - `strong`: declared for this organisation (register, subunit, unshared e-mail domain, NAV, Wikidata) with
+     its registered phone/e-mail/address or its legal name on the site and nothing pointing elsewhere; or a
+     name-derived domain (spelling the whole legal name) that shows the full legal name with its company form
+     while no other register entity has a name containing it, or the legal name plus a registered role holder.
    - `registry_declared`, `email_declared`, `source_declared`: the URL only, with no content attributed.
    - `ambiguous`: a shared domain, another org number, a different copyright entity, a foreign-group
      redirect, or a placeholder or parked page. The candidate is published with the reason, and nothing else.

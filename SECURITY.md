@@ -8,6 +8,8 @@
 | Company-owned websites | static HTTP GET, robots.txt honoured, per-host rate limit | site's own terms | website, brand, contacts, socials, news, JobPosting |
 | NAV arbeidsplassen job feed (pam-stilling-feed) | official API with token | NAV API terms (arbeidsplassen.nav.no/vilkar-api) | active job ads matched by employer org number; inactive ads are never shown |
 | Wikidata SPARQL | official endpoint | CC0 | items with P2333 = organisation number |
+| GLEIF LEI API (api.gleif.org) | open API, no key | CC0 | LEI records whose registeredAs is the organisation number |
+| Brønnøysundregistrene Støtteregisteret API | open API, no key | NLOD 2.0 | public support awards to the organisation number |
 
 No LinkedIn, Meta, Glassdoor, Indeed or Google scraping. No unofficial clients. Search engines are not used
 as evidence.

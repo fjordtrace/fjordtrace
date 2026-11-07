@@ -62,7 +62,7 @@ diffs against an earlier output instead. See [REFRESH.md](REFRESH.md).
 | `--requests-per-company` | 18 | `SIGNALPOST_REQUESTS_PER_COMPANY` |
 | `--soft-stop` | 0.85 | `SIGNALPOST_SOFT_STOP` |
 | `--workers` | 16 | `SIGNALPOST_WORKERS` |
-| `--connectors` | all (`website,nav_jobs,workforce,wikidata`) | `SIGNALPOST_CONNECTORS` |
+| `--connectors` | all (`website,nav_jobs,workforce,wikidata,lei,public_support`) | `SIGNALPOST_CONNECTORS` |
 | OCR on/off, threads | on, 2 | `SIGNALPOST_OCR`, `SIGNALPOST_OCR_THREADS` |
 
 When time or requests run out, the remaining sources are reported as `blocked` with the reason, never
@@ -81,15 +81,20 @@ batch ─► Brønnøysund: entity, roles, subunits, filed accounts (3 years), g
       │     brand, description, contacts, locations, socials, dated news, JobPosting
       ├─► workforce lane: official annual-account copy (by org number) ─► "Antall årsverk" field (template + OCR)
       ├─► NAV job feed: ads whose employer org number is the company or one of its subunits, verified live
-      └─► Wikidata: items with P2333 = organisation number
+      ├─► Wikidata: items with P2333 = organisation number
+      ├─► GLEIF: LEI records registered to the organisation number (batched, 100 per request)
+      └─► Støtteregisteret: public support awards whose recipient is the organisation number
       ─► dedupe ─► refresh diff ─► cited summary ─► envelopes.jsonl + run-report.json + report.html
 ```
 
 **Exact-entity gate.** Site content is published only for `exact` (this org number on the site, not dominated
 by another) or `strong` sites:
-- declared by the register, a subunit, NAV or Wikidata, with the name and a registered phone, e-mail or address
-  on the site; or
-- a name-derived domain with the full legal name and a registered phone, e-mail or address on the site.
+- declared for this organisation by the register or a subunit, with its registered phone, e-mail or address on
+  the site, or with its legal name and nothing pointing elsewhere;
+- an unshared registry e-mail domain, NAV or Wikidata, with the legal name on the site;
+- a name-derived domain with the full legal name *including its company form* ("Krauman AS"), when no other
+  entity in the register has a name containing this name (two companies cannot share a registered name); or
+- a name-derived domain with the legal name and a registered role holder (board member, CEO) on the site.
 
 Register-declared but unproven sites publish the URL only. Domains shared by several organisations
 (managers, accountants, groups), sites that show another organisation number, and sites whose copyright
@@ -105,6 +110,7 @@ uv run --group dev pytest -q      # offline; no network needed
 ## Repository map
 `src/signalpost/`: `cli.py`, `pipeline.py` (orchestration, envelope assembly), `registry.py`, `http.py`
 (budgeted, robots-aware, safe-URL fetcher), `model.py` (claims and evidence), `refresh.py`,
-`synthesis.py`, `report.py`, `show.py`, `connectors/` (website*, jobs_nav, workforce*, wikidata).
+`synthesis.py`, `report.py`, `show.py`, `connectors/` (website*, jobs_nav, workforce*, wikidata, lei,
+public_support).
 `tools/` rebuilds the shipped NAV index and the shared-domain table. Licence: MIT. Registry endpoint
 normalisation follows Builderr's MIT starter kit (`NOTICE-starter-kit-LICENSE.txt`).

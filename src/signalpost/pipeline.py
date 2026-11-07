@@ -68,6 +68,7 @@ class Pipeline:
         self.contrib: dict[str, Contribution] = {}
         self.company_ms: dict[str, float] = {}
         self.connector_stats: dict[str, dict[str, int]] = {}
+        self.prepare_s: dict[str, float] = {}
         self.log = (lambda *a: print(*a, flush=True)) if not args.quiet else (lambda *a: None)
 
     # ------------------------------------------------------------------ phases
@@ -117,13 +118,21 @@ class Pipeline:
         connectors = load_connectors(enabled)
         batch = BatchContext(self.run_id, self.orgs, self.fetcher, self.budget, snapshot, self.registry,
                              options=vars(self.args))
-        for c in connectors:
-            self.connector_stats[c.name] = {"ok": 0, "error": 0, "skipped": 0}
+        def prepare(c) -> None:
+            t = time.monotonic()
             try:
                 c.prepare(batch)
             except Exception as exc:
                 self.log(f"[signalpost] {c.name}.prepare failed: {exc}")
                 batch.shared[f"{c.name}.prepare_error"] = str(exc)
+            self.prepare_s[c.name] = round(time.monotonic() - t, 1)
+
+        for c in connectors:
+            self.connector_stats[c.name] = {"ok": 0, "error": 0, "skipped": 0}
+        # batch-level preparations (index updates, batched lookups, open-data downloads) are independent
+        with ThreadPoolExecutor(max_workers=max(1, len(connectors))) as prep_pool:
+            list(prep_pool.map(prepare, connectors))
+        self.log(f"[signalpost] connector preparation done: {self.prepare_s}")
         for org in self.orgs:
             self.contrib[org] = Contribution()
         active = [o for o in self.orgs if not self.registry[o].facts.get("deleted")]

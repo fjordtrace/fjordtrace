@@ -13,6 +13,7 @@ CONNECTORS = [
     ("signalpost.connectors.wikidata", "WikidataConnector"),
     ("signalpost.connectors.lei", "LeiConnector"),
     ("signalpost.connectors.public_support", "PublicSupportConnector"),
+    ("signalpost.connectors.central_approval", "CentralApprovalConnector"),
 ]
 
 

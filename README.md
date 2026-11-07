@@ -62,7 +62,7 @@ diffs against an earlier output instead. See [REFRESH.md](REFRESH.md).
 | `--requests-per-company` | 18 | `SIGNALPOST_REQUESTS_PER_COMPANY` |
 | `--soft-stop` | 0.85 | `SIGNALPOST_SOFT_STOP` |
 | `--workers` | 16 | `SIGNALPOST_WORKERS` |
-| `--connectors` | all (`website,nav_jobs,workforce,wikidata,lei,public_support`) | `SIGNALPOST_CONNECTORS` |
+| `--connectors` | all (`website,nav_jobs,workforce,wikidata,lei,public_support,central_approval`) | `SIGNALPOST_CONNECTORS` |
 | OCR on/off, threads | on, 2 | `SIGNALPOST_OCR`, `SIGNALPOST_OCR_THREADS` |
 
 When time or requests run out, the remaining sources are reported as `blocked` with the reason, never
@@ -83,7 +83,8 @@ batch ─► Brønnøysund: entity, roles, subunits, filed accounts (3 years), g
       ├─► NAV job feed: ads whose employer org number is the company or one of its subunits, verified live
       ├─► Wikidata: items with P2333 = organisation number
       ├─► GLEIF: LEI records registered to the organisation number (batched, 100 per request)
-      └─► Støtteregisteret: public support awards whose recipient is the organisation number
+      ├─► Støtteregisteret: public support awards whose recipient is the organisation number
+      └─► DiBK: central approval for building work, from the public page keyed by organisation number
       ─► dedupe ─► refresh diff ─► cited summary ─► envelopes.jsonl + run-report.json + report.html
 ```
 

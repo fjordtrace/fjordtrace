@@ -42,6 +42,7 @@ FIELD_LABEL = {
     "site_person": "Person named on website", "job_posting": "Job ad", "news_item": "News item",
     "public_mention": "Public mention", "wikidata_item": "Wikidata entry",
     "lei_record": "Legal Entity Identifier (LEI)", "public_support": "Public support award",
+    "central_approval": "Central approval (building work)",
 }
 
 # availability family -> plain-words label. Mirrors pipeline.FAMILY_SECTION (kept local: pipeline is heavy to import).
@@ -59,6 +60,7 @@ FAMILY_LABEL = {
     "workforce": "workforce (FTE) figures",
     "lei": "Legal Entity Identifier (LEI) record",
     "public_support": "public support awards (Støtteregisteret)",
+    "central_approval": "central approval for building work (DiBK)",
 }
 FAMILY_SECTION = {
     "legal_identity": "legal_identity_and_brand", "annual_accounts": "annual_accounts", "workforce": "annual_accounts",
@@ -66,6 +68,7 @@ FAMILY_SECTION = {
     "group_relation": "leadership_and_workplaces", "official_website": "website_and_profiles",
     "social_profiles": "website_and_profiles", "wikidata": "website_and_profiles", "jobs": "hiring_and_activity",
     "news_activity": "hiring_and_activity", "lei": "legal_identity_and_brand", "public_support": "annual_accounts",
+    "central_approval": "legal_identity_and_brand",
 }
 FAMILY_OF_FIELD = {
     **{f: "legal_identity" for f in ("legal_name", "legal_form", "registration_status", "registered_address",
@@ -78,7 +81,7 @@ FAMILY_OF_FIELD = {
                                        "contact_detail", "site_location", "site_person")},
     "social_profile": "social_profiles", "job_posting": "jobs", "news_item": "news_activity",
     "public_mention": "news_activity", "workforce_fte": "workforce", "wikidata_item": "wikidata",
-    "lei_record": "lei", "public_support": "public_support",
+    "lei_record": "lei", "public_support": "public_support", "central_approval": "central_approval",
 }
 # families every full run checks; a family missing from env["availability"] was not checked at all
 EXPECTED_FAMILIES = tuple(FAMILY_LABEL)
@@ -426,6 +429,13 @@ def describe_claim(c: dict, full: bool = True) -> str:
         if d.get("granting_body"):
             s += f" from {d['granting_body']}"
         return s
+    if f == "central_approval" and d:
+        s = "valid central approval" if d.get("approved") else "central approval"
+        if d.get("valid_from") and d.get("valid_to"):
+            s += f" {d['valid_from']} to {d['valid_to']}"
+        if d.get("areas"):
+            s += f" ({plural(len(d['areas']), 'approved area')})"
+        return s
     if f == "site_person" and d:
         return ", ".join(filter(None, [d.get("name"), d.get("title") or d.get("role")])) or _generic(v)
     return _generic(v)
@@ -743,6 +753,17 @@ def _what_it_does(name: str, cl: list[dict], st: _Statements) -> None:
         elif v.get("next_renewal"):
             text += f", registered since {v.get('initial_registration')} and due for renewal {v['next_renewal']}"
         st.add("what_it_does", text + ".", [lei])
+    ca = first(cl, "central_approval")
+    if ca and isinstance(ca.get("value"), dict) and ca["value"].get("approved"):
+        v = ca["value"]
+        areas = [f"{a.get('function', '').lower()} in {a.get('subject_area', '').lower()} (class {a.get('class')})"
+                 for a in v.get("areas") or []]
+        text = "It holds central approval for building work from DiBK"
+        if v.get("valid_to"):
+            text += f", valid {v.get('valid_from')} to {v['valid_to']}"
+        if areas:
+            text += f", covering {join_words(areas, 3)}"
+        st.add("what_it_does", text + ".", [ca])
     wd = first(cl, "wikidata_item")
     if wd and isinstance(wd.get("value"), dict) and wd["value"].get("description"):
         st.add("what_it_does", f"Wikidata ({wd['value'].get('item')}) describes it as {quote(wd['value']['description'], 160)}", [wd])

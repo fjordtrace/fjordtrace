@@ -125,3 +125,44 @@ def test_synthesis_mentions_lei_and_support():
     texts = [s["text"] for s in syn.summarise(env)["statements"]]
     assert any("Legal Entity Identifier OW6OFBNCKXC4US5C7523" in t for t in texts)
     assert any(t.startswith("Støtteregisteret lists 1 public support award totalling NOK 1,000") for t in texts)
+
+
+DIBK_HTML = """<html><body><main><h2>SUBMARA SURVEY VEST AS</h2>
+<div><b>Organisasjonsnummer</b><p>996871592</p><b>Webside</b><p><a href="http://www.vesethas.no">www.vesethas.no</a></p>
+<b>Antall lønnsmottakere</b><p>19</p></div>
+<div><h3>Foretaket har sentral godkjenning</h3><b>Godkjenningsperiode:</b> <span>23.07.2024&ndash;23.07.2027</span></div>
+<div class="bg-dibk-green p-5"><p>Yrkesskadeforsikring</p><p>Ansvarsforsikring</p></div>
+<table><tr><th>Funksjon</th><th>Fagområde</th><th>Tiltaksklasse</th><th></th></tr>
+<tr><td>Prosjekterende</td><td>Oppmålingsteknisk prosjektering</td><td>3</td><td>Vis betydning</td></tr>
+<tr><td colspan="4">Prosjekterende, tiltaksklasse 3 Kravene ...</td></tr>
+<tr><td>Utførende</td><td>Innmåling og utstikking av tiltak</td><td>3</td><td>Vis betydning</td></tr></table>
+</main></body></html>"""
+
+
+def test_central_approval_parse_and_exact_number():
+    from signalpost.connectors.central_approval import parse_page
+    v = parse_page(DIBK_HTML.encode(), "996871592")
+    assert v["approved"] and v["valid_from"] == "2024-07-23" and v["valid_to"] == "2027-07-23"
+    assert v["wage_earners"] == 19 and v["website_in_register"] == "www.vesethas.no"
+    assert v["areas"] == [{"function": "Prosjekterende", "subject_area": "Oppmålingsteknisk prosjektering", "class": 3},
+                          {"function": "Utførende", "subject_area": "Innmåling og utstikking av tiltak", "class": 3}]
+    assert parse_page(DIBK_HTML.encode(), "923609016") is None  # page about another organisation
+
+
+def test_central_approval_connector_states():
+    from signalpost.connectors.central_approval import CentralApprovalConnector
+
+    class F(Fake):
+        def get(self, url, phase, **kw):
+            self.calls.append((url, kw))
+            if url.endswith("996871592"):
+                return FetchResult(url, url, 200, utcnow(), DIBK_HTML.encode(), "text/html")
+            return FetchResult(url, url, 404, utcnow(), b"", "text/html", error="http_404")
+
+    f = F({})
+    _, c = ctx(f, "996871592")
+    out = CentralApprovalConnector().run(c)
+    assert out.claims[0]["field"] == "central_approval" and out.claims[0]["evidence_ids"]
+    assert f.calls[0][1]["check_robots"] is True
+    _, c = ctx(f, ORG)
+    assert CentralApprovalConnector().run(c).family_states["central_approval"]["state"] == "not_available"

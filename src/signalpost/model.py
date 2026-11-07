@@ -60,6 +60,7 @@ FIELDS: dict[str, tuple[str, bool, str]] = {
     "wikidata_item": ("website_and_profiles", True, "company_profile"),
     "lei_record": ("legal_identity_and_brand", True, "identifier"),
     "public_support": ("annual_accounts", True, "public_funding"),
+    "central_approval": ("legal_identity_and_brand", True, "licence"),
 }
 
 

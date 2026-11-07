@@ -24,7 +24,7 @@ import requests
 
 from .budget import Budget
 
-USER_AGENT = "SignalpostResearchAgent/0.1 (+https://builderr.ai/challenges/signalpost)"
+USER_AGENT = "SignalpostResearchAgent/0.2 (+https://builderr.ai/challenges/signalpost)"
 MAX_BYTES = 4_000_000
 MAX_REDIRECTS = 5
 

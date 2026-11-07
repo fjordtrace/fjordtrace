@@ -80,7 +80,7 @@ FAMILY_OF_FIELD = {
 EXPECTED_FAMILIES = tuple(FAMILY_LABEL)
 
 TOPIC_LABEL = {
-    "what_it_does": "What it does", "size_and_finances": "Size and finances", "people": "People",
+    "assessment": "In short", "what_it_does": "What it does", "size_and_finances": "Size and finances", "people": "People",
     "footprint": "Footprint", "hiring_and_workforce": "Hiring and workforce", "group": "Group",
     "status": "Status", "recent_activity": "Recent activity",
 }
@@ -455,6 +455,218 @@ class _Statements:
         keys = list(dict.fromkeys(c["key"] for c in claims))
         evs = list(dict.fromkeys(e for c in claims for e in c.get("evidence_ids") or []))
         self.items.append({"topic": topic, "text": text, "claim_keys": keys, "evidence_ids": evs})
+
+
+# ---------------------------------------------------------------------------------------------- assessment
+def _num(v: Any) -> float | None:
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def _full_year(value: dict) -> bool:
+    d = _period_days(value)
+    return d is not None and 360 <= d <= 370
+
+
+def _size_word(fte: float | None, revenue: float | None) -> str | None:
+    if fte is not None:
+        if fte >= 250:
+            return "large"
+        if fte >= 50:
+            return "medium-sized"
+        if fte >= 10:
+            return "small"
+        if fte > 0:
+            return "micro-sized"
+    if revenue is not None and revenue > 0:
+        if revenue >= 500_000_000:
+            return "large"
+        if revenue >= 80_000_000:
+            return "medium-sized"
+        if revenue >= 10_000_000:
+            return "small"
+        return "micro-sized"
+    return None
+
+
+def _age_text(founded: Any, ref: dt.date) -> str | None:
+    d = _date(founded)
+    if not d:
+        return None
+    years = (ref - d).days / 365.25
+    if years < 1:
+        return f"founded {d.isoformat()}, less than a year before this profile"
+    n = int(years)
+    return f"founded in {d.year}, about {n} {'year' if n == 1 else 'years'} ago"
+
+
+def _latest_fte(cl: list[dict]) -> tuple[dict | None, float | None, str | None]:
+    best = None
+    for c in by_field(cl, "workforce_fte"):
+        v = c.get("value") if isinstance(c.get("value"), dict) else {}
+        if _num(v.get("value")) is None:
+            continue
+        if best is None or str(v.get("year") or "") > str(best["value"].get("year") or ""):
+            best = c
+    if best is None:
+        return None, None, None
+    return best, _num(best["value"]["value"]), (str(best["value"].get("year") or "") or None)
+
+
+def _assessment(name: str, cl: list[dict], st: _Statements, ref: dt.date) -> None:
+    """Decision-useful reading of the facts: size, business profile, profitability, trend, balance sheet and the
+    points worth checking. Every sentence is computed from cited claims; nothing is estimated or invented."""
+    sel = [c for c in accounts(cl, "SELSKAP") if isinstance(c["value"].get("figures"), dict)]
+    latest = sel[-1] if sel else None
+    fig = latest["value"]["figures"] if latest else {}
+    cur = (latest["value"].get("currency") or "NOK") if latest else "NOK"
+    fy = fiscal_label(latest["value"]) if latest else ""
+    fte_c, fte, fte_year = _latest_fte(cl)
+    emp_c = first(cl, "registered_employees")
+    emp = _num((emp_c or {}).get("value"))
+    rev = _num(fig.get("revenue"))
+    head_c = fte_c if fte is not None else emp_c
+    headcount = fte if fte is not None else emp
+
+    # 1. who, how big, where, how old
+    ind = sorted(by_field(cl, "industry"),
+                 key=lambda c: (c.get("value") or {}).get("rank", 9) if isinstance(c.get("value"), dict) else 9)
+    addr = first(cl, "registered_address") or first(cl, "postal_address")
+    founded = first(cl, "founded_date") or first(cl, "registered_date")
+    size = _size_word(headcount, rev)
+    used: list[dict] = []
+    text = f"{name} is " + (f"a {size} " if size else "a ")
+    if (ind and isinstance(ind[0].get("value"), dict) and ind[0]["value"].get("description")
+            and not str(ind[0]["value"].get("code") or "").startswith("00")):
+        text += f"business in “{ind[0]['value']['description']}” (NACE {ind[0]['value'].get('code')})"
+        used.append(ind[0])
+    else:
+        text += "business"
+    if addr and isinstance(addr.get("value"), dict) and municipality(addr["value"]):
+        text += f" based in {addr['value'].get('poststed') or municipality(addr['value'])}"
+        used.append(addr)
+    age = _age_text((founded or {}).get("value"), ref)
+    if age:
+        text += f", {age}"
+        used.append(founded)
+    scale = []
+    if fte is not None:
+        scale.append(f"{fmt_number(fte)} full-time equivalents" + (f" in {fte_year}" if fte_year else ""))
+    elif emp is not None:
+        scale.append(plural(int(emp), "registered employee"))
+    if rev is not None:
+        scale.append(f"revenue {fmt_amount(rev, cur)} for {fy}")
+    if scale:
+        text += " (" + "; ".join(scale) + ")"
+    used += [c for c in (head_c, latest if rev is not None else None) if c]
+    if used:
+        st.add("assessment", text + ".", used)
+
+    if not latest:
+        return
+    opr, net, ar = _num(fig.get("operating_result")), _num(fig.get("net_financial")), _num(fig.get("annual_result"))
+    costs, ta, eq = _num(fig.get("operating_costs")), _num(fig.get("total_assets")), _num(fig.get("equity"))
+    cash, debt, pay = _num(fig.get("cash")), _num(fig.get("total_debt")), _num(fig.get("payroll_cost"))
+
+    # 2. business profile
+    if (rev is None or rev == 0) and (fte or 0) == 0:
+        if net is not None and abs(net) >= 50_000 and (opr is None or abs(net) > abs(opr)):
+            st.add("assessment", f"Its {fy} accounts show no operating revenue, and net financial items "
+                                 f"({fmt_amount(net, cur)}) outweigh the operating result"
+                                 + (f" ({fmt_amount(opr, cur)})" if opr is not None else "")
+                                 + ": the profile of a holding or investment company.", [latest])
+        elif (costs is None or abs(costs) < 50_000) and (net is None or abs(net) < 50_000):
+            st.add("assessment", f"Its {fy} accounts show no revenue, almost no costs and no material financial "
+                                 "items: the company appears dormant, not yet trading or only holding assets.", [latest])
+
+    # 3. profitability
+    if rev and rev > 0 and opr is not None:
+        margin = opr / rev * 100
+        word = ("profitable at operating level" if opr > 0 else
+                "breaking even at operating level" if opr == 0 else "loss-making at operating level")
+        if abs(margin) < 100:
+            detail = f"operating margin {margin:.1f}% (operating result {fmt_amount(opr, cur)} on revenue {fmt_amount(rev, cur)})"
+        else:
+            detail = f"operating result {fmt_amount(opr, cur)} on revenue of only {fmt_amount(rev, cur)}"
+        st.add("assessment", f"In {fy} it was {word}: {detail}.", [latest])
+
+    # 4. multi-year trend (full-year company accounts only)
+    full = [c for c in sel if _full_year(c["value"]) and _num(c["value"]["figures"].get("revenue")) is not None]
+    if len(full) >= 2:
+        a, b = full[0], full[-1]
+        ra, rb = _num(a["value"]["figures"]["revenue"]), _num(b["value"]["figures"]["revenue"])
+        ya, yb = int(str(a["value"]["period_end"])[:4]), int(str(b["value"]["period_end"])[:4])
+        if ra and ra > 0 and rb is not None and yb > ya:
+            direction = "grew" if rb > ra else ("fell" if rb < ra else "was flat")
+            text = (f"Revenue {direction} from {fmt_amount(ra, cur)} in {fiscal_label(a['value'])} to "
+                    f"{fmt_amount(rb, cur)} in {fiscal_label(b['value'])}")
+            if direction != "was flat" and rb > 0 and yb - ya >= 2:
+                cagr = ((rb / ra) ** (1 / (yb - ya)) - 1) * 100
+                text += f", an average {'growth' if cagr > 0 else 'decline'} of about {abs(cagr):.1f}% a year"
+            elif direction != "was flat" and rb > 0:
+                text += f" ({(rb - ra) / ra * 100:+.1f}%)"
+            st.add("assessment", text + ".", full)
+    losses = 0
+    for c in reversed(sel):
+        r = _num(c["value"]["figures"].get("annual_result"))
+        if r is not None and r < 0:
+            losses += 1
+        else:
+            break
+    if losses >= 2:
+        st.add("assessment", f"It reported a net loss in each of its last {losses} filed years.", sel[-losses:])
+    elif losses == 0 and len(sel) >= 2 and ar is not None and ar > 0:
+        prev_r = _num(sel[-2]["value"]["figures"].get("annual_result"))
+        if prev_r is not None and prev_r < 0:
+            st.add("assessment", f"It returned to a profit ({fmt_amount(ar, cur)}) in {fy} after a loss of "
+                                 f"{fmt_amount(abs(prev_r), cur)} in the preceding accounts.", sel[-2:])
+
+    # 5. balance sheet
+    if ta and ta > 0 and eq is not None:
+        ratio = eq / ta * 100
+        if eq >= 0:
+            text = (f"At {latest['value'].get('period_end')} equity was {ratio:.0f}% of total assets "
+                    f"({fmt_amount(eq, cur)} of {fmt_amount(ta, cur)})")
+        else:
+            text = (f"At {latest['value'].get('period_end')} equity was negative ({fmt_amount(eq, cur)}) against "
+                    f"total assets of {fmt_amount(ta, cur)}")
+        extra = []
+        if cash is not None:
+            extra.append(f"cash and bank {fmt_amount(cash, cur)}")
+        if debt is not None:
+            extra.append(f"total debt {fmt_amount(debt, cur)}")
+        if extra:
+            text += "; " + ", ".join(extra)
+        if 0 <= ratio < 10:
+            text += ". That is a thin equity buffer"
+        st.add("assessment", text + ".", [latest])
+
+    # 6. payroll per FTE (same full year only)
+    if (pay and fte and fte >= 1 and fte_year and _full_year(latest["value"])
+            and str(latest["value"].get("period_end", ""))[:4] == fte_year):
+        st.add("assessment", f"Payroll costs were about {fmt_amount(pay / fte, cur)} per full-time equivalent in {fy} "
+                             f"({fmt_amount(pay, cur)} for {fmt_number(fte)} FTE).", [latest, fte_c])
+
+    # 7. points to check
+    flags, fused = [], []
+    rs = first(cl, "registration_status")
+    if rs and isinstance(rs.get("value"), dict):
+        for k, word in (("bankrupt", "it is registered as bankrupt"), ("under_liquidation", "it is under liquidation"),
+                        ("forced_dissolution", "it is under forced dissolution")):
+            if rs["value"].get(k):
+                flags.append(word)
+                fused.append(rs)
+    if eq is not None and eq < 0:
+        flags.append("negative equity")
+        fused.append(latest)
+    end = _date(latest["value"].get("period_end"))
+    if end and (ref - end).days > 2 * 365 + 200:
+        flags.append(f"the latest filed company accounts are for {fy}")
+        fused.append(latest)
+    if latest["value"].get("audit_opt_out") and rev and rev >= 5_000_000:
+        flags.append(f"the accounts are unaudited (audit opt-out) with revenue of {fmt_amount(rev, cur)}")
+        fused.append(latest)
+    if flags:
+        st.add("assessment", "Points to check: " + "; ".join(flags) + ".", fused)
 
 
 def _what_it_does(name: str, cl: list[dict], st: _Statements) -> None:
@@ -875,6 +1087,7 @@ def summarise(env: dict) -> dict:
     st, unknowns = _Statements(), []
     name = env.get("legal_name") or (first(cl, "legal_name") or {}).get("value") or env.get("organisation_number")
     if env.get("state") == "available" and cl:
+        _assessment(name, cl, st, ref_date(env))
         _what_it_does(name, cl, st)
         _finances(cl, st, unknowns)
         _people(cl, st)

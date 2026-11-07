@@ -294,3 +294,43 @@ def test_generic_rendering_of_unknown_shapes():
 
 def test_summary_is_deterministic():
     assert syn.summarise(full_env()) == syn.summarise(full_env())
+
+
+def test_assessment_reads_the_numbers_and_cites_them():
+    s = syn.summarise(full_env())
+    a = topics(s)["assessment"]
+    assert s["statements"][0]["topic"] == "assessment"
+    assert a[0].startswith("FJORDLYS TEKNIKK AS is a small business in “Dataprogrammeringstjenester” (NACE 62.100) based in BERGEN")
+    assert "12.5 full-time equivalents in 2025" in a[0] and "revenue NOK 12.5M for FY2025" in a[0]
+    assert any("loss-making at operating level: operating margin -2.0%" in x for x in a)
+    assert any(x.startswith("Revenue grew from NOK 10M in FY2024 to NOK 12.5M in FY2025 (+25.0%)") for x in a)
+    for st in s["statements"]:
+        if st["topic"] == "assessment":
+            assert st["claim_keys"] and st["evidence_ids"]
+
+
+def test_assessment_holding_dormant_losses_and_flags():
+    hold = envelope([put("legal_name", "H HOLDING AS"),
+                     acc("SELSKAP", "2025-01-01", "2025-12-31", operating_result=-6_000, net_financial=850_000,
+                         annual_result=840_000, equity=3_500_000, total_assets=5_000_000)])
+    a = topics(syn.summarise(hold))["assessment"]
+    assert any("the profile of a holding or investment company" in x for x in a)
+    assert any("equity was 70% of total assets" in x for x in a)
+    dormant = envelope([put("legal_name", "D AS"),
+                        acc("SELSKAP", "2025-01-01", "2025-12-31", revenue=0, operating_costs=-2_000, annual_result=-2_000)])
+    assert any("appears dormant" in x for x in topics(syn.summarise(dormant))["assessment"])
+    losses = envelope([put("legal_name", "L AS"),
+                       acc("SELSKAP", "2023-01-01", "2023-12-31", revenue=1_000_000, annual_result=-10_000),
+                       acc("SELSKAP", "2024-01-01", "2024-12-31", revenue=900_000, annual_result=-20_000),
+                       acc("SELSKAP", "2025-01-01", "2025-12-31", revenue=800_000, annual_result=-30_000,
+                           equity=-50_000, total_assets=100_000)])
+    a = topics(syn.summarise(losses))["assessment"]
+    assert "It reported a net loss in each of its last 3 filed years." in a
+    assert any("equity was negative (NOK -50k)" in x for x in a)
+    assert any(x.startswith("Points to check: negative equity") for x in a)
+
+
+def test_assessment_never_invents_missing_figures():
+    env = envelope([put("legal_name", "M AS"), acc("SELSKAP", "2025-01-01", "2025-12-31", annual_result=10_000)])
+    a = topics(syn.summarise(env)).get("assessment", [])
+    assert not any("margin" in x or "equity was" in x or "Revenue" in x for x in a)

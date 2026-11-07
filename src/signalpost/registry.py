@@ -121,6 +121,7 @@ class BulkSnapshot:
         self.email_domain_count: Counter = Counter()
         self.site_domain_count: Counter = Counter()
         self.rows_scanned = 0
+        self.namesakes: dict[str, int] = {}  # batch org -> other register entities whose name contains its name core
         self.file_sha256 = None
         self.shared_fallback = None
         if path:
@@ -157,8 +158,11 @@ class BulkSnapshot:
             if first in ("{", "["):
                 self._load_json(fh, wanted)
                 return
+            names: list[str] = []
             for row in csv.DictReader(fh):
                 self.rows_scanned += 1
+                if row.get("navn"):
+                    names.append(row["navn"])
                 d = email_domain(row.get("epostadresse", ""))
                 if d:
                     self.email_domain_count[d] += 1
@@ -168,6 +172,8 @@ class BulkSnapshot:
                 org = row.get("organisasjonsnummer", "")
                 if org in wanted:
                     self.rows[org] = row
+            if self.rows_scanned >= 100_000:  # only a (near-)complete register can show a name is unique
+                self.namesakes = namesake_counts(names, {o: r.get("navn", "") for o, r in self.rows.items()})
 
     def _load_json(self, fh, wanted: set[str]) -> None:
         text = fh.read()
@@ -183,6 +189,38 @@ class BulkSnapshot:
                 self.site_domain_count[s] += 1
             if row.get("organisasjonsnummer") in wanted:
                 self.rows[row["organisasjonsnummer"]] = row
+
+
+_NAME_TR = str.maketrans({"æ": "ae", "ø": "o", "å": "a", "ä": "a", "ö": "o", "ü": "u", "é": "e"})
+
+
+def namesake_counts(names: Iterable[str], targets: dict[str, str]) -> dict[str, int]:
+    """For each target organisation: how many OTHER register names contain its name core as a whole-word
+    sequence ("KRAUMAN AS" -> "KRAUMAN EIENDOM AS" counts). 0 means the name is unique in the register."""
+    from .connectors.website_text import name_tokens  # local import: website_text imports this module
+    cores: dict[str, tuple[str, ...]] = {}
+    for org, nm in targets.items():
+        toks = tuple(name_tokens(nm or ""))
+        if toks:
+            cores[org] = toks
+    by_first: dict[str, list[str]] = {}
+    for org, toks in cores.items():
+        by_first.setdefault(toks[0], []).append(org)
+    keys = set(by_first)
+    hits: Counter = Counter()
+    split = re.compile(r"[^a-z0-9]+").split
+    for nm in names:
+        first = keys.intersection(split(nm.lower().translate(_NAME_TR)))
+        if not first:
+            continue
+        full = name_tokens(nm)
+        for f in first:
+            for org in by_first[f]:
+                t = cores[org]
+                n = len(t)
+                if any(tuple(full[i:i + n]) == t for i in range(len(full) - n + 1)):
+                    hits[org] += 1
+    return {org: max(0, hits[org] - 1) for org in cores}  # minus the organisation itself
 
 
 def _flatten(obj: dict, prefix: str = "") -> dict[str, str]:

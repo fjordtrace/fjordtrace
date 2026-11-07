@@ -32,7 +32,7 @@ from .website_parse import (
     location_candidates, location_key, news_candidates, parse_feed, parse_page, section_links, social_candidates,
 )
 from .website_text import (
-    alias_phrases, compact, domain_label, find_orgnrs, guess_domains, handle_matches, mentions, name_core,
+    alias_phrases, compact, domain_label, find_orgnrs, guess_domains, handle_matches, find_name_span, legal_name_phrase, mentions, name_core,
     name_domain_match, name_tokens, norm_space, copyright_entities, same_entity_name, phone_in_text, raw_contains_org, site_key, translit, window, GENERIC,
     DIRECTORY_DOMAINS, OTHER_SOCIAL, SOCIAL_DOMAINS,
 )
@@ -290,6 +290,17 @@ class _CompanyRun:
         core = name_core(self.name)
         if core and len(core.replace(" ", "")) >= 4 and mentions(page.text + " " + page.title, [core]):
             ev.name_in_text = True
+            phrase = legal_name_phrase(self.name)
+            legal = bool(phrase and mentions(page.text + " " + page.title, [phrase]))
+            if legal and not ev.legal_name_in_text:
+                ev.legal_name_in_text = True
+                ev.name_proof = None  # prefer a snippet with the full legal name
+            if ev.name_proof is None:
+                for src in (page.text, page.title):
+                    span = find_name_span(src, self.name, with_form=legal) or find_name_span(src, self.name)
+                    if span:
+                        ev.name_proof = (page.url, window(src, *span))
+                        break
         ev.js_shell = ev.js_shell or page.js_shell
         if not ev.foreign_owner:
             for ent in copyright_entities(page.text):
@@ -336,7 +347,8 @@ class _CompanyRun:
                 break
 
     def evaluate(self, cand: Candidate) -> tuple[Decision, list[Page], IdentityEvidence]:
-        ev = IdentityEvidence(domain_match=name_domain_match(self.name, cand.key))
+        ev = IdentityEvidence(domain_match=name_domain_match(self.name, cand.key),
+                              namesakes=(getattr(self.ctx.batch.snapshot, "namesakes", None) or {}).get(self.org))
         group_member = bool(self.group)
         if set(cand.origins) & {"registry", "subunit"} and cand.others_site >= HEAVY_SHARED:
             return decide(cand, ev, group_member, self.related), [], ev
@@ -649,7 +661,11 @@ class _CompanyRun:
                 evs.append(self.ev(pg, snip, f"match_registry_{what.split(':')[0]}", "text"))
                 proofs.append(f"registry {what.split(':')[0]} on {purl}")
             if ev.name_in_text:
-                proofs.append("legal name on site")
+                proofs.append("full legal name on site" if ev.legal_name_in_text else "legal name on site")
+                if ev.name_proof:
+                    purl, snip = ev.name_proof
+                    pg = next((p for p in pages if p.url == purl), home)
+                    evs.append(self.ev(pg, snip, "match_legal_name", "text"))
             if ev.domain_match:
                 proofs.append(f"domain {ev.domain_match}ly matches legal name")
         evs.extend(self._declaration_evs(cand))

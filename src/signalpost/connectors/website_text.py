@@ -65,17 +65,33 @@ def norm_space(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").replace(" ", " ")).strip()
 
 
-def name_tokens(name: str) -> list[str]:
-    """Legal name -> lower-case ASCII tokens without the trailing legal-form suffix."""
+def _all_name_tokens(name: str) -> list[str]:
     s = translit(name)
     s = re.sub(r"\ba\s*/\s*s\b", " as ", s)
     s = re.sub(r"\ba\.\s?s\b\.?", " as ", s)
     s = s.replace("&", " ")
     s = re.sub(r"[^a-z0-9]+", " ", s)
-    toks = s.split()
+    return s.split()
+
+
+def name_tokens(name: str) -> list[str]:
+    """Legal name -> lower-case ASCII tokens without the trailing legal-form suffix."""
+    toks = _all_name_tokens(name)
     while len(toks) > 1 and toks[-1] in LEGAL_FORMS:
         toks.pop()
     return toks
+
+
+COMPANY_FORMS = {"as", "asa", "sa", "ba", "da", "ans", "ks", "nuf"}
+
+
+def legal_name_phrase(name: str) -> str | None:
+    """Full legal name with its company form ("krauman as"). Two companies cannot share this exact name in the
+    Norwegian register, so it identifies one entity. None when the name carries no company form."""
+    toks = _all_name_tokens(name)
+    if len(toks) < 2 or toks[-1] not in COMPANY_FORMS:
+        return None
+    return " ".join(toks)
 
 
 def name_core(name: str) -> str:
@@ -209,6 +225,20 @@ def find_orgnrs(text: str) -> list[OrgHit]:
 def raw_contains_org(raw: str, org: str) -> int:
     """Occurrences of the bare 9-digit number in raw HTML (links to brreg/proff, JSON-LD vatID, etc.)."""
     return len(re.findall(r"(?<!\d)" + re.escape(org) + r"(?!\d)", raw or ""))
+
+
+def find_name_span(text: str, name: str, with_form: bool = False) -> tuple[int, int] | None:
+    """Where the legal name (optionally with its company form) is written in the original page text, matched
+    case-insensitively with flexible separators, so the evidence span is verbatim page text."""
+    toks = [x for x in re.split(r"[^\w]+", (name or "").lower()) if x]
+    if not with_form:
+        while len(toks) > 1 and translit(toks[-1]) in LEGAL_FORMS:
+            toks.pop()
+    if not toks:
+        return None
+    pat = r"(?<!\w)" + r"[\s\-&./,]*".join(re.escape(x) for x in toks) + r"(?!\w)"
+    m = re.search(pat, text or "", re.I)
+    return (m.start(), m.end()) if m else None
 
 
 def window(text: str, start: int, end: int, pad: int = 70) -> str:

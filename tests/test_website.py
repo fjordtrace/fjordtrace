@@ -136,7 +136,12 @@ def test_gate_strong_needs_name_and_corroboration_and_not_group():
     assert decide(cand(), ev, group_member=False).level == "strong"
     assert decide(cand(), ev, group_member=True).level == "registry_declared"
     ev2 = IdentityEvidence(name_in_text=True)
-    assert decide(cand(), ev2, group_member=False).level == "registry_declared"
+    assert decide(cand(), ev2, group_member=False).level == "strong"  # declared + legal name, nothing against it
+    assert decide(cand(), ev2, group_member=True).level == "registry_declared"
+    assert decide(cand(), IdentityEvidence(), group_member=False).level == "registry_declared"
+    ev3 = IdentityEvidence(corroborations=[("address", "u", "s")])  # declared + registered address, no name
+    assert decide(cand(), ev3, group_member=False).level == "strong"
+    assert decide(cand(), IdentityEvidence(corroborations=[("person", "u", "s")]), False).level == "registry_declared"
 
 
 def test_gate_guess_needs_exact():
@@ -246,7 +251,7 @@ def registry_contribution(profile: dict, roles=None, group=None, workplaces=None
     return c
 
 
-def run_connector(monkeypatch, pages, profile, site_count=None, group=None, roles=None):
+def run_connector(monkeypatch, pages, profile, site_count=None, group=None, roles=None, namesakes=None):
     monkeypatch.setattr(W, "check_url_safe", lambda url: None)
     f = FakeFetcher(pages)
 
@@ -254,6 +259,7 @@ def run_connector(monkeypatch, pages, profile, site_count=None, group=None, role
         rows = {ORG: profile}
         site_domain_count = site_count or Counter({"bergenror.no": 1})
         email_domain_count = Counter()
+    Snap.namesakes = {ORG: namesakes} if namesakes is not None else {}
 
     batch = BatchContext("t", [ORG], f, f.budget, Snap(), {})
     conn = W.WebsiteConnector()
@@ -320,7 +326,7 @@ def test_end_to_end_parent_site_is_ambiguous(monkeypatch):
 
 
 def test_end_to_end_registry_declared_publishes_url_only(monkeypatch):
-    html = "<html><head><title>Velkommen</title><meta property='og:site_name' content='Bergen Rør'></head>" \
+    html = "<html><head><title>Velkommen</title><meta property='og:site_name' content='Rørleggeren'></head>" \
            "<body><a href='https://www.facebook.com/bergenror'>fb</a></body></html>"
     profile = {"navn": "BERGEN RØR AS", "hjemmeside": "www.bergenror.no"}
     out, _ = run_connector(monkeypatch, {"https://www.bergenror.no/": html}, profile)
@@ -399,3 +405,68 @@ def test_heavily_shared_email_domain_is_not_fetched(monkeypatch):
     out = conn.run(CompanyContext(ORG, batch, registry_contribution(profile)))
     assert out.claims == [] and f.calls == []
     assert out.family_states["official_website"]["state"] == "not_available"
+
+
+def test_end_to_end_registry_declared_with_name_is_strong(monkeypatch):
+    html = ("<html><head><title>Bergen Rør</title></head>"
+            "<body><p>Bergen Rør AS leverer rørtjenester.</p><a href='https://www.facebook.com/bergenror'>fb</a></body></html>")
+    profile = {"navn": "BERGEN RØR AS", "hjemmeside": "www.bergenror.no"}
+    out, _ = run_connector(monkeypatch, {"https://www.bergenror.no/": html}, profile)
+    site = next(c for c in out.claims if c["field"] == "official_website")
+    assert site["value"]["identity"] == "strong"
+    assert any(c["field"] == "social_profile" for c in out.claims)
+
+
+def test_gate_guess_legal_name_with_form_and_unique_name():
+    base = dict(name_in_text=True, legal_name_in_text=True, domain_match="exact")
+    g = cand(origins=("guess",))
+    assert decide(g, IdentityEvidence(**base, namesakes=0), False).level == "strong"
+    assert decide(g, IdentityEvidence(**base, namesakes=1), False).level == "unverified"    # a similar name exists
+    assert decide(g, IdentityEvidence(**base, namesakes=None), False).level == "unverified"  # unknown without bulk
+    assert decide(g, IdentityEvidence(**base, namesakes=0), True).level == "unverified"     # group member
+    assert decide(g, IdentityEvidence(**base, namesakes=0, redirected_to="x.no"), False).level == "unverified"
+    assert decide(g, IdentityEvidence(**base, namesakes=0, foreign_owner="Other AS"), False).level == "unverified"
+    assert decide(g, IdentityEvidence(name_in_text=True, domain_match="exact", namesakes=0), False).level == "unverified"
+    person = IdentityEvidence(name_in_text=True, namesakes=0, corroborations=[("person", "u", "s")])
+    assert decide(g, person, False).level == "strong"
+    assert decide(g, IdentityEvidence(name_in_text=True, namesakes=2, corroborations=[("person", "u", "s")]),
+                  False).level == "unverified"
+
+
+def test_namesake_counts():
+    from signalpost.registry import namesake_counts
+    names = ["KRAUMAN AS", "NYBØ AS", "NYBØ MEDIA AS", "HANSEN OG NYBØ AS", "TUNNCON AS", "TUNNCONSULT AS"]
+    got = namesake_counts(names, {"1": "KRAUMAN AS", "2": "NYBØ AS", "3": "TUNNCON AS"})
+    assert got == {"1": 0, "2": 2, "3": 0}
+
+
+def test_legal_name_phrase():
+    from signalpost.connectors.website_text import legal_name_phrase
+    assert legal_name_phrase("KRAUMAN AS") == "krauman as"
+    assert legal_name_phrase("NYBØ A/S") == "nybo as"
+    assert legal_name_phrase("Hansen Tømrer Ola Hansen") is None
+
+
+def test_end_to_end_guess_with_full_legal_name(monkeypatch):
+    html = ("<html><head><title>Hjem | Krauman AS</title></head>"
+            "<body><p>Vi bygger hus.</p><a href='https://www.facebook.com/krauman'>fb</a></body></html>")
+    profile = {"navn": "KRAUMAN AS"}
+    out, _ = run_connector(monkeypatch, {"https://krauman.no/": html}, profile, site_count=Counter(), namesakes=0)
+    site = next(c for c in out.claims if c["field"] == "official_website")
+    assert site["value"]["identity"] == "strong"
+    assert site["evidence_ids"], "a published site needs evidence"
+    spans = [e["claim_span"] for e in out.evidence if e["id"] in site["evidence_ids"]]
+    assert any("Krauman AS" in s for s in spans)
+    # same page, but a similar name exists in the register: not published
+    out2, _ = run_connector(monkeypatch, {"https://krauman.no/": html}, profile, site_count=Counter(), namesakes=3)
+    assert not any(c["field"] == "official_website" and c["availability"] == "available" for c in out2.claims)
+
+
+def test_gate_declared_by_email_nav_wikidata_with_legal_name():
+    legal = dict(name_in_text=True, legal_name_in_text=True, namesakes=0)
+    assert decide(cand(origins=("email",)), IdentityEvidence(**legal), False).level == "strong"
+    assert decide(cand(origins=("email",), others_email=1), IdentityEvidence(**legal), False).level == "ambiguous"
+    assert decide(cand(origins=("email",)), IdentityEvidence(**legal), True).level != "strong"
+    assert decide(cand(origins=("nav",)), IdentityEvidence(name_in_text=True), False).level == "strong"
+    assert decide(cand(origins=("wikidata",)), IdentityEvidence(name_in_text=True), True).level == "source_declared"
+    assert decide(cand(origins=("nav",)), IdentityEvidence(domain_match="exact"), False).level == "source_declared"

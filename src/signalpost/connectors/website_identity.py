@@ -174,6 +174,9 @@ class IdentityEvidence:
     redirect_declared_by_others: int = 0      # register entries listing that final site
     js_shell: bool = False
     foreign_owner: str | None = None          # a different legal entity named in the copyright line
+    legal_name_in_text: bool = False          # full legal name WITH company form ("Krauman AS") on the site
+    name_proof: tuple[str, str] | None = None  # (page url, verbatim snippet) where the legal name is written
+    namesakes: int | None = None              # other register names containing this name core; None = unknown
 
 
 @dataclass
@@ -205,6 +208,17 @@ def decide(cand: Candidate, ev: IdentityEvidence, group_member: bool, related: d
                 and not group_member and not ev.js_shell):
             kinds = "/".join(sorted({c[0].split(":")[0] for c in hard}))
             return Decision("strong", f"legal name and registered {kinds} found on the site")
+        clean = (not ev.others and not ev.foreign_owner and not ev.redirected_to and not group_member
+                 and not ev.js_shell)
+        # Third proof path: the full legal name WITH its company form ("Krauman AS") on a domain that spells it,
+        # and no other entity in the register has a name containing this name. Two companies cannot share a
+        # registered name, so the phrase identifies this organisation.
+        if clean and ev.legal_name_in_text and ev.namesakes == 0 and ev.domain_match == "exact":
+            return Decision("strong", "full legal name (with company form) shown on a domain that spells it; "
+                                      "no other organisation in the register has a similar name")
+        # Fourth: the legal name and a registered role holder (board member / manager) of this organisation.
+        if clean and ev.name_in_text and ev.namesakes == 0 and any(c[0] == "person" for c in ev.corroborations):
+            return Decision("strong", "legal name and a registered role holder of this organisation found on the site")
         return Decision("unverified", "name-derived or search-nominated domain without this organisation number on the site")
     if ev.ours_count:
         top_org, top = (ev.others.most_common(1)[0] if ev.others else (None, 0))
@@ -229,10 +243,29 @@ def decide(cand: Candidate, ev: IdentityEvidence, group_member: bool, related: d
             and not cand.others_site and email_unshared):
         return Decision("strong", "declared by " + "/".join(sorted(set(cand.origins) & DECLARED))
                         + "; name and registry details found on the site")
+    hard = [c for c in ev.corroborations if c[0].split(":")[0] in ("phone", "email", "address")]
+    clean = not ev.foreign_owner and not foreign_redirect and not cand.others_site and not ev.js_shell
+    if declared and clean and hard and not group_member:
+        kinds = "/".join(sorted({c[0].split(":")[0] for c in hard}))
+        return Decision("strong", f"listed for this organisation in the register; its registered {kinds} found on the site")
+    if declared and clean and ev.name_in_text and not group_member and email_unshared:
+        return Decision("strong", "listed for this organisation in the register; legal name found on the site")
+    if ("email" in cand.origins and clean and ev.name_in_text and ev.domain_match and not group_member
+            and not cand.others_email):
+        return Decision("strong", "unshared registry e-mail domain spells the legal name; legal name found on the site")
     if foreign_redirect:
         return Decision("ambiguous", f"redirects to {ev.redirected_to}, which other organisations list as their website")
     if declared:
         return Decision("registry_declared", "listed in the register; ownership not proven on the site")
+    if (set(cand.origins) & {"email", "wikidata", "nav"} and clean and ev.legal_name_in_text and ev.namesakes == 0
+            and not group_member and not cand.others_email):
+        return Decision("strong", "full legal name (with company form) on a site declared via "
+                        + "/".join(sorted(set(cand.origins) & {"email", "wikidata", "nav"}))
+                        + "; no other organisation in the register has a similar name")
+    if (set(cand.origins) & {"wikidata", "nav"} and clean and ev.name_in_text and not group_member
+            and not cand.others_email):
+        return Decision("strong", "listed for this organisation number by "
+                        + "/".join(sorted(set(cand.origins) & {"wikidata", "nav"})) + "; legal name found on the site")
     if set(cand.origins) & {"wikidata", "nav"}:
         if cand.others_site:
             return Decision("ambiguous", "candidate domain is listed as website by another organisation in the register")

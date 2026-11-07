@@ -508,3 +508,11 @@ def test_dedupe_locations_prefers_registered_street_then_shortest():
     got = lambda reg: [x[1]["value"]["street"] for x in W.dedupe_locations(c, reg)]
     assert got({compact("Hjalmar Wessels vei 10")}) == ["Hjalmar Wessels vei 10", "Storgata 1"]
     assert got(set()) == ["Wessels vei 10", "Storgata 1"]
+
+
+def test_bare_domain_is_not_a_name_mention_and_parked_pages_are_placeholders():
+    assert mentions("aireiendom.no is parked aireiendom.no is registered", ["air eiendom"]) is None
+    assert mentions("Velkommen til Air Eiendom AS", ["air eiendom"]) == "air eiendom"
+    page = parse_page(res("http://aireiendom.no/", "<html><body>aireiendom.no is parked. aireiendom.no is registered, "
+                                                   "but not yet in use.</body></html>"))
+    assert page.placeholder

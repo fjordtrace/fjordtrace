@@ -30,6 +30,8 @@ _PLACEHOLDER = (
     "this domain has been registered", "domenet er registrert hos", "future home of something quite cool",
     "index of /", "iis windows server", "this site is currently unavailable", "domain not configured",
     "nettstedet er ikke tilgjengelig", "denne nettsiden er ikke publisert", "site not found",
+    " is parked", "is registered, but", "parkert domene", "parkert hos", "domain parking", "this domain is registered",
+    "coming soon - this domain", "under construction", "under oppbygging", "kommer snart",
 )
 
 

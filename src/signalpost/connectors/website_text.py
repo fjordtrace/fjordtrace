@@ -362,6 +362,8 @@ def alias_phrases(names: list[str]) -> list[str]:
 def mentions(text: str, phrases: list[str]) -> str | None:
     """First alias phrase that occurs as whole words in text (accent-folded), or None."""
     text = re.sub(r"(https?://|www\.)\S+|\S+@\S+", " ", text or "")  # a URL or address is not a mention
+    # nor is a bare domain name ("aireiendom.no is parked"): it repeats the candidate, it does not name the company
+    text = re.sub(r"\b[\w-]+(\.[\w-]+)*\.(no|com|net|org|io|eu|se|dk|biz|info|as)\b", " ", text, flags=re.I)
     t = " " + " ".join(re.sub(r"[^a-z0-9]+", " ", translit(text)).split()) + " "
     for p in phrases:
         if f" {p} " in t:

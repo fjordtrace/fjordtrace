@@ -178,6 +178,23 @@ def name_domain_match(name: str, key: str) -> str | None:
     return None
 
 
+def extra_guess_domains(name: str) -> list[str]:
+    """Wider guesses, tried after guess_domains(): the name without generic words (.no) and the full name (.com).
+    These hit other owners far more often, so they only count with the strictest proofs (see decide())."""
+    toks = name_tokens(name)
+    if not toks or len(toks) > 4:
+        return []
+    full = "".join(toks)
+    if len(full) < 4 or len(full) > 40 or full.isdigit() or all(t in GENERIC for t in toks):
+        return []
+    out = []
+    distinct = [t for t in toks if t not in GENERIC]
+    if distinct and distinct != toks and len("".join(distinct)) >= 5:
+        out.append("".join(distinct) + ".no")
+    out.append(full + ".com")
+    return out
+
+
 def guess_domains(name: str) -> list[str]:
     """At most two .no guesses from the legal name (compact and hyphenated)."""
     toks = name_tokens(name)

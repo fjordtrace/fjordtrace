@@ -418,7 +418,7 @@ def test_end_to_end_registry_declared_with_name_is_strong(monkeypatch):
 
 
 def test_gate_guess_legal_name_with_form_and_unique_name():
-    base = dict(name_in_text=True, legal_name_in_text=True, domain_match="exact")
+    base = dict(name_in_text=True, legal_name_in_text=True, domain_match="exact", domain_spells_full_name=True)
     g = cand(origins=("guess",))
     assert decide(g, IdentityEvidence(**base, namesakes=0), False).level == "strong"
     assert decide(g, IdentityEvidence(**base, namesakes=1), False).level == "unverified"    # a similar name exists
@@ -427,10 +427,23 @@ def test_gate_guess_legal_name_with_form_and_unique_name():
     assert decide(g, IdentityEvidence(**base, namesakes=0, redirected_to="x.no"), False).level == "unverified"
     assert decide(g, IdentityEvidence(**base, namesakes=0, foreign_owner="Other AS"), False).level == "unverified"
     assert decide(g, IdentityEvidence(name_in_text=True, domain_match="exact", namesakes=0), False).level == "unverified"
-    person = IdentityEvidence(name_in_text=True, namesakes=0, corroborations=[("person", "u", "s")])
+    person = IdentityEvidence(name_in_text=True, namesakes=0, domain_spells_full_name=True,
+                              corroborations=[("person", "u", "s")])
     assert decide(g, person, False).level == "strong"
-    assert decide(g, IdentityEvidence(name_in_text=True, namesakes=2, corroborations=[("person", "u", "s")]),
+    assert decide(g, IdentityEvidence(name_in_text=True, namesakes=2, domain_spells_full_name=True,
+                                      corroborations=[("person", "u", "s")]), False).level == "unverified"
+    # a domain spelling only the distinctive part (krauman.no for KRAUMAN EIENDOM AS) needs the org number
+    partial = dict(base, domain_spells_full_name=False)
+    assert decide(g, IdentityEvidence(**partial, namesakes=0), False).level == "unverified"
+    assert decide(g, IdentityEvidence(name_in_text=True, namesakes=0, corroborations=[("person", "u", "s")]),
                   False).level == "unverified"
+
+
+def test_extra_guess_domains():
+    from signalpost.connectors.website_text import extra_guess_domains
+    assert extra_guess_domains("KRAUMAN EIENDOM AS") == ["krauman.no", "kraumaneiendom.com"]
+    assert extra_guess_domains("KRAUMAN AS") == ["krauman.com"]
+    assert extra_guess_domains("HOLDING AS") == []
 
 
 def test_namesake_counts():

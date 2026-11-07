@@ -32,7 +32,7 @@ from .website_parse import (
     location_candidates, location_key, news_candidates, parse_feed, parse_page, section_links, social_candidates,
 )
 from .website_text import (
-    alias_phrases, compact, domain_label, find_orgnrs, guess_domains, handle_matches, find_name_span, legal_name_phrase, mentions, name_core,
+    alias_phrases, compact, domain_label, extra_guess_domains, find_orgnrs, guess_domains, handle_matches, find_name_span, legal_name_phrase, mentions, name_core,
     name_domain_match, name_tokens, norm_space, copyright_entities, same_entity_name, phone_in_text, raw_contains_org, site_key, translit, window, GENERIC,
     DIRECTORY_DOMAINS, OTHER_SOCIAL, SOCIAL_DOMAINS,
 )
@@ -348,6 +348,7 @@ class _CompanyRun:
 
     def evaluate(self, cand: Candidate) -> tuple[Decision, list[Page], IdentityEvidence]:
         ev = IdentityEvidence(domain_match=name_domain_match(self.name, cand.key),
+                              domain_spells_full_name=domain_label(cand.key) == "".join(name_tokens(self.name)),
                               namesakes=(getattr(self.ctx.batch.snapshot, "namesakes", None) or {}).get(self.org))
         group_member = bool(self.group)
         if set(cand.origins) & {"registry", "subunit"} and cand.others_site >= HEAVY_SHARED:
@@ -401,7 +402,7 @@ class _CompanyRun:
         for cand in cands[:4]:
             if any(r[1].level in CONTENT_LEVELS for r in results):
                 break
-            if fetched_cands >= 2 or (results and not self._can_spend(3)):
+            if fetched_cands >= (3 if guessed else 2) or (results and not self._can_spend(3)):
                 break
             before = self.used
             d, pages, ev = self.evaluate(cand)
@@ -503,7 +504,7 @@ class _CompanyRun:
 
     def guess_candidates(self) -> list[Candidate]:
         out = []
-        for dom in guess_domains(self.name):
+        for dom in guess_domains(self.name) + extra_guess_domains(self.name):
             if self.counts["site"].get(dom, 0) or self.counts["email"].get(dom, 0):
                 continue  # another organisation lists this domain: it is theirs
             try:

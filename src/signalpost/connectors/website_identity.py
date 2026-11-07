@@ -176,6 +176,7 @@ class IdentityEvidence:
     foreign_owner: str | None = None          # a different legal entity named in the copyright line
     legal_name_in_text: bool = False          # full legal name WITH company form ("Krauman AS") on the site
     name_proof: tuple[str, str] | None = None  # (page url, verbatim snippet) where the legal name is written
+    domain_spells_full_name: bool = False     # domain label == the whole legal name (not just its distinctive part)
     namesakes: int | None = None              # other register names containing this name core; None = unknown
 
 
@@ -213,11 +214,12 @@ def decide(cand: Candidate, ev: IdentityEvidence, group_member: bool, related: d
         # Third proof path: the full legal name WITH its company form ("Krauman AS") on a domain that spells it,
         # and no other entity in the register has a name containing this name. Two companies cannot share a
         # registered name, so the phrase identifies this organisation.
-        if clean and ev.legal_name_in_text and ev.namesakes == 0 and ev.domain_match == "exact":
+        if clean and ev.legal_name_in_text and ev.namesakes == 0 and ev.domain_spells_full_name:
             return Decision("strong", "full legal name (with company form) shown on a domain that spells it; "
                                       "no other organisation in the register has a similar name")
         # Fourth: the legal name and a registered role holder (board member / manager) of this organisation.
-        if clean and ev.name_in_text and ev.namesakes == 0 and any(c[0] == "person" for c in ev.corroborations):
+        if (clean and ev.name_in_text and ev.namesakes == 0 and ev.domain_spells_full_name
+                and any(c[0] == "person" for c in ev.corroborations)):
             return Decision("strong", "legal name and a registered role holder of this organisation found on the site")
         return Decision("unverified", "name-derived or search-nominated domain without this organisation number on the site")
     if ev.ours_count:

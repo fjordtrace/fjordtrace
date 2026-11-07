@@ -11,6 +11,8 @@ CONNECTORS = [
     ("signalpost.connectors.jobs_nav", "NavJobsConnector"),
     ("signalpost.connectors.workforce", "WorkforceConnector"),
     ("signalpost.connectors.wikidata", "WikidataConnector"),
+    ("signalpost.connectors.lei", "LeiConnector"),
+    ("signalpost.connectors.public_support", "PublicSupportConnector"),
 ]
 
 

@@ -28,13 +28,14 @@ FAMILY_OF_FIELD = {
                                        "contact_detail", "site_location", "site_person")},
     "social_profile": "social_profiles", "job_posting": "jobs", "news_item": "news_activity",
     "public_mention": "news_activity", "workforce_fte": "workforce", "wikidata_item": "wikidata",
+    "lei_record": "lei", "public_support": "public_support",
 }
 FAMILY_SECTION = {
     "legal_identity": "legal_identity_and_brand", "annual_accounts": "annual_accounts",
     "workforce": "annual_accounts", "roles": "leadership_and_workplaces", "workplaces": "leadership_and_workplaces",
     "group_relation": "leadership_and_workplaces", "official_website": "website_and_profiles",
     "social_profiles": "website_and_profiles", "wikidata": "website_and_profiles", "jobs": "hiring_and_activity",
-    "news_activity": "hiring_and_activity",
+    "news_activity": "hiring_and_activity", "lei": "legal_identity_and_brand", "public_support": "annual_accounts",
 }
 STATE_RANK = {"available": 0, "blocked": 1, "failed": 2, "ambiguous": 3, "not_available": 4, "not_applicable": 5}
 

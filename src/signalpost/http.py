@@ -167,6 +167,8 @@ class Fetcher:
         params: dict[str, Any] | None = None,
         max_bytes: int = MAX_BYTES,
         timeout: float | None = None,
+        method: str = "GET",
+        json_body: Any = None,
     ) -> FetchResult:
         retrieved_at = utcnow()
         try:
@@ -186,8 +188,10 @@ class Fetcher:
                 host = urlsplit(current).hostname or ""
                 if polite:
                     self._wait_host(host)
-                resp = self.session.get(
-                    current, headers=headers, params=params if current == url else None,
+                first_hop = current == url
+                resp = self.session.request(
+                    method if first_hop else "GET", current, headers=headers, params=params if first_hop else None,
+                    json=json_body if first_hop else None,
                     timeout=timeout or self.timeout, allow_redirects=False, stream=True,
                 )
                 if resp.is_redirect and resp.headers.get("location"):
@@ -221,3 +225,4 @@ class Fetcher:
         except requests.RequestException as exc:
             return FetchResult(url, current, None, retrieved_at, redirects=redirects,
                                elapsed_ms=int((time.monotonic() - started) * 1000), error=f"{type(exc).__name__}: {exc}"[:300])
+

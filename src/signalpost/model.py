@@ -58,6 +58,8 @@ FIELDS: dict[str, tuple[str, bool, str]] = {
     "news_item": ("hiring_and_activity", True, "public_post"),
     "public_mention": ("hiring_and_activity", True, "public_mention"),
     "wikidata_item": ("website_and_profiles", True, "company_profile"),
+    "lei_record": ("legal_identity_and_brand", True, "identifier"),
+    "public_support": ("annual_accounts", True, "public_funding"),
 }
 
 

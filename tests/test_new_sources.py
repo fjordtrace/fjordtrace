@@ -1,0 +1,127 @@
+"""Offline tests for the GLEIF (LEI) and Støtteregisteret (public support) connectors."""
+from __future__ import annotations
+
+import json
+
+from signalpost.budget import Budget
+from signalpost.connectors import lei as L
+from signalpost.connectors import public_support as P
+from signalpost.connectors.base import BatchContext, CompanyContext
+from signalpost.http import FetchResult, utcnow
+from signalpost.model import Contribution
+from signalpost import synthesis as syn
+
+ORG = "923609016"
+OTHER = "914778271"
+
+
+def res(url, body, status=200):
+    return FetchResult(url, url, status, utcnow(), json.dumps(body).encode(), "application/json",
+                       error=None if status == 200 else f"http_{status}")
+
+
+class Fake:
+    def __init__(self, body, status=200):
+        self.body, self.status, self.calls = body, status, []
+        self.budget = Budget(1000, 600)
+
+    def get(self, url, phase, **kw):
+        self.calls.append((url, kw))
+        return res(url, self.body, self.status)
+
+
+def ctx(fetcher, org=ORG):
+    batch = BatchContext("t", [org], fetcher, fetcher.budget, None, {})
+    return batch, CompanyContext(org, batch, Contribution())
+
+
+def lei_rec(lei, registered_as, country="NO", status="ISSUED"):
+    return {"id": lei, "attributes": {
+        "entity": {"registeredAs": registered_as, "legalName": {"name": "EQUINOR ASA"}, "status": "ACTIVE",
+                   "jurisdiction": country, "legalAddress": {"country": country, "city": "Stavanger"},
+                   "legalForm": {"id": "3C7U"}},
+        "registration": {"status": status, "initialRegistrationDate": "2012-06-06T00:00:00Z",
+                         "lastUpdateDate": "2026-05-01T00:00:00Z", "nextRenewalDate": "2027-11-09T00:00:00Z",
+                         "managingLou": "5493001KJTIIGC8Y1R12"}}}
+
+
+def test_lei_query_sends_both_spellings_in_one_request():
+    url = L.query_url([ORG, OTHER])
+    assert "923609016%2C923+609+016%2C914778271%2C914+778+271" in url
+
+
+def test_lei_matches_exact_norwegian_number_only():
+    body = {"data": [lei_rec("OW6OFBNCKXC4US5C7523", "923 609 016"),
+                     lei_rec("XXXXXXXXXXXXXXXXXX99", "923609016", country="SE")],  # same digits, Swedish register
+            "meta": {"pagination": {"lastPage": 1}}}
+    f = Fake(body)
+    batch, c = ctx(f)
+    conn = L.LeiConnector()
+    conn.prepare(batch)
+    out = conn.run(c)
+    leis = [cl["value"]["lei"] for cl in out.claims]
+    assert leis == ["OW6OFBNCKXC4US5C7523"]
+    assert out.claims[0]["evidence_ids"] and out.family_states["lei"]["state"] == "available"
+    assert len(f.calls) == 1
+
+
+def test_lei_not_available_and_failed_states():
+    f = Fake({"data": [], "meta": {"pagination": {"lastPage": 1}}})
+    batch, c = ctx(f)
+    conn = L.LeiConnector()
+    conn.prepare(batch)
+    assert conn.run(c).family_states["lei"]["state"] == "not_available"
+    f = Fake({}, status=503)
+    batch, c = ctx(f)
+    conn.prepare(batch)
+    assert conn.run(c).family_states["lei"]["state"] == "failed"
+
+
+def award(aid, recipient, date="2026-10-05", amount=2716.63):
+    return {"stoettetiltaksnummer": aid, "status": "stoettetiltaksstatus.registrert", "tildelingsdato": date,
+            "stoetteinstrument": "stoetteinstrumenttype.skatteEllerAvgiftsFritak",
+            "tildeltBeloep": {"beloep": amount, "valuta": "NOK"}, "tilknyttetStoetteordning": "1000029830",
+            "eoesRettsligGrunnlag": {"statsstoettekategori": "statsstoettekategori.gruppeunntak",
+                                     "primaerrettsligGrunnlag": {"formaal": "formaalstype.regionalstoette"}},
+            "rolle": [{"type": "rolletype.stoettegiver", "rolleinnehaverVirksomhet": {"organisasjonsnummer": "974761076", "navn": "SKATTEETATEN"}},
+                      {"type": "rolletype.stoettemottaker", "rolleinnehaverVirksomhet": {"organisasjonsnummer": recipient, "navn": "X"}}]}
+
+
+def test_public_support_publishes_only_awards_to_this_organisation():
+    f = Fake({"stoettetildeling": [award("1", ORG, "2026-01-01"), award("2", OTHER), award("3", ORG, "2026-10-05")]})
+    _, c = ctx(f)
+    out = P.PublicSupportConnector().run(c)
+    assert [cl["value"]["award_id"] for cl in out.claims] == ["3", "1"]  # most recent first, other recipient dropped
+    v = out.claims[0]["value"]
+    assert v["instrument_en"] == "tax or duty exemption" and v["granting_body"] == "SKATTEETATEN"
+    assert v["aid_category_en"] == "block-exempted aid" and v["amount"] == 2716.63
+    url, kw = f.calls[0]
+    assert kw["method"] == "POST" and kw["json_body"][0]["value"] == ORG
+    assert out.family_states["public_support"]["state"] == "available"
+
+
+def test_public_support_none_and_failure():
+    _, c = ctx(Fake({"stoettetildeling": []}))
+    assert P.PublicSupportConnector().run(c).family_states["public_support"]["state"] == "not_available"
+    _, c = ctx(Fake({}, status=500))
+    assert P.PublicSupportConnector().run(c).family_states["public_support"]["state"] == "failed"
+
+
+def test_public_support_caps_published_awards():
+    f = Fake({"stoettetildeling": [award(str(i), ORG, f"2026-01-{i % 28 + 1:02d}") for i in range(40)]})
+    _, c = ctx(f)
+    out = P.PublicSupportConnector().run(c)
+    assert len(out.claims) == P.MAX_AWARDS
+    assert "40 award(s)" in out.family_states["public_support"]["reason"]
+
+
+def test_synthesis_mentions_lei_and_support():
+    from test_synthesis import envelope, put
+    env = envelope([put("legal_name", "EQUINOR ASA"),
+                    put("lei_record", {"lei": "OW6OFBNCKXC4US5C7523", "registration_status": "ISSUED",
+                                       "initial_registration": "2012-06-06", "next_renewal": "2027-11-09"}, "OW6"),
+                    put("public_support", {"award_id": "1", "granted_date": "2026-10-05", "amount": 1000.0,
+                                           "currency": "NOK", "instrument_en": "grant", "granting_body": "ENOVA SF"}, "1")])
+    texts = [s["text"] for s in syn.summarise(env)["statements"]]
+    assert any("Legal Entity Identifier OW6OFBNCKXC4US5C7523" in t for t in texts)
+    assert any(t.startswith("Støtteregisteret lists 1 public support award totalling NOK 1,000") for t in texts)

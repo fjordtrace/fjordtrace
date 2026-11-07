@@ -41,6 +41,7 @@ FIELD_LABEL = {
     "contact_detail": "Contact detail (website)", "site_location": "Location (website)",
     "site_person": "Person named on website", "job_posting": "Job ad", "news_item": "News item",
     "public_mention": "Public mention", "wikidata_item": "Wikidata entry",
+    "lei_record": "Legal Entity Identifier (LEI)", "public_support": "Public support award",
 }
 
 # availability family -> plain-words label. Mirrors pipeline.FAMILY_SECTION (kept local: pipeline is heavy to import).
@@ -56,13 +57,15 @@ FAMILY_LABEL = {
     "jobs": "job ads",
     "news_activity": "news and public activity",
     "workforce": "workforce (FTE) figures",
+    "lei": "Legal Entity Identifier (LEI) record",
+    "public_support": "public support awards (Støtteregisteret)",
 }
 FAMILY_SECTION = {
     "legal_identity": "legal_identity_and_brand", "annual_accounts": "annual_accounts", "workforce": "annual_accounts",
     "roles": "leadership_and_workplaces", "workplaces": "leadership_and_workplaces",
     "group_relation": "leadership_and_workplaces", "official_website": "website_and_profiles",
     "social_profiles": "website_and_profiles", "wikidata": "website_and_profiles", "jobs": "hiring_and_activity",
-    "news_activity": "hiring_and_activity",
+    "news_activity": "hiring_and_activity", "lei": "legal_identity_and_brand", "public_support": "annual_accounts",
 }
 FAMILY_OF_FIELD = {
     **{f: "legal_identity" for f in ("legal_name", "legal_form", "registration_status", "registered_address",
@@ -75,6 +78,7 @@ FAMILY_OF_FIELD = {
                                        "contact_detail", "site_location", "site_person")},
     "social_profile": "social_profiles", "job_posting": "jobs", "news_item": "news_activity",
     "public_mention": "news_activity", "workforce_fte": "workforce", "wikidata_item": "wikidata",
+    "lei_record": "lei", "public_support": "public_support",
 }
 # families every full run checks; a family missing from env["availability"] was not checked at all
 EXPECTED_FAMILIES = tuple(FAMILY_LABEL)
@@ -407,6 +411,21 @@ def describe_claim(c: dict, full: bool = True) -> str:
         if d.get("description"):
             s += f": {d['description']}"
         return s
+    if f == "lei_record" and d:
+        s = f"LEI {d.get('lei')}"
+        if d.get("registration_status"):
+            s += f" ({d['registration_status'].lower()}"
+            s += f", renewal due {d['next_renewal']})" if d.get("next_renewal") else ")"
+        return s
+    if f == "public_support" and d:
+        what = d.get("instrument_en") or (d.get("instrument") or "support")
+        amt = fmt_amount(d["amount"], d.get("currency") or "NOK") if isinstance(d.get("amount"), (int, float)) else None
+        s = f"{d.get('granted_date') or 'undated'}: {what}"
+        if amt:
+            s += f" of {amt}"
+        if d.get("granting_body"):
+            s += f" from {d['granting_body']}"
+        return s
     if f == "site_person" and d:
         return ", ".join(filter(None, [d.get("name"), d.get("title") or d.get("role")])) or _generic(v)
     return _generic(v)
@@ -716,6 +735,14 @@ def _what_it_does(name: str, cl: list[dict], st: _Statements) -> None:
     if desc and desc.get("value"):
         dv = desc["value"] if isinstance(desc["value"], str) else _generic(desc["value"])
         st.add("what_it_does", f"Its own website describes it as: {quote(dv, 260)} (company-owned copy, not independently verified).", [desc])
+    for lei in by_field(cl, "lei_record")[:1]:
+        v = lei["value"] if isinstance(lei.get("value"), dict) else {}
+        text = f"It holds the Legal Entity Identifier {v.get('lei')} (GLEIF)"
+        if v.get("registration_status") and v["registration_status"] != "ISSUED":
+            text += f"; its registration status is {v['registration_status'].lower()}, i.e. not renewed"
+        elif v.get("next_renewal"):
+            text += f", registered since {v.get('initial_registration')} and due for renewal {v['next_renewal']}"
+        st.add("what_it_does", text + ".", [lei])
     wd = first(cl, "wikidata_item")
     if wd and isinstance(wd.get("value"), dict) and wd["value"].get("description"):
         st.add("what_it_does", f"Wikidata ({wd['value'].get('item')}) describes it as {quote(wd['value']['description'], 160)}", [wd])
@@ -770,6 +797,25 @@ def _finances(cl: list[dict], st: _Statements, unknowns: list[dict]) -> None:
         st.add("size_and_finances", f"Group accounts (KONSERN) for {fiscal_label(latest['value'])} are filed separately: "
                                     + (", ".join(parts) or "no key figures reported")
                                     + ". These cover the whole group and are not comparable with company-only figures.", [latest])
+    aid = [c for c in by_field(cl, "public_support") if isinstance(c.get("value"), dict)]
+    if aid:
+        tot: dict[str, float] = {}
+        for c in aid:
+            v = c["value"]
+            if isinstance(v.get("amount"), (int, float)):
+                tot[v.get("currency") or "NOK"] = tot.get(v.get("currency") or "NOK", 0.0) + v["amount"]
+        givers = list(dict.fromkeys(c["value"].get("granting_body") for c in aid if c["value"].get("granting_body")))
+        dates = sorted(c["value"].get("granted_date") for c in aid if c["value"].get("granted_date"))
+        text = f"Støtteregisteret lists {plural(len(aid), 'public support award')}"
+        if tot:
+            text += " totalling " + ", ".join(fmt_amount(a, cur) for cur, a in tot.items())
+        if dates:
+            text += f" ({dates[0]} to {dates[-1]})" if dates[0] != dates[-1] else f" ({dates[0]})"
+        if givers:
+            text += f", granted by {join_words(givers, 3)}"
+        latest = sorted(aid, key=lambda c: c["value"].get("granted_date") or "")[-1]
+        text += f". Most recent: {describe_claim(latest)}."
+        st.add("size_and_finances", text, aid)
     filing = first(cl, "annual_account_filing")
     years = [str((c["value"].get("period_end") or "")[:4]) for c in sel + kon]
     if filing and isinstance(filing.get("value"), dict):

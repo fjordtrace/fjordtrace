@@ -36,6 +36,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--soft-stop", type=float, default=_env("SIGNALPOST_SOFT_STOP", 0.85), help="fraction of time after which optional work stops")
     p.add_argument("--workers", type=int, default=_env("SIGNALPOST_WORKERS", 16))
     p.add_argument("--connectors", default=_env("SIGNALPOST_CONNECTORS", None), help="comma list to enable (default all)")
+    p.add_argument("--tight", action="store_true", default=os.environ.get("SIGNALPOST_TIGHT", "").lower() in ("1", "true", "yes"),
+                   help="use the tight request plan even when the cap would allow a full run")
+    p.add_argument("--roles-bulk", default=_env("SIGNALPOST_ROLES_BULK", None),
+                   help="local copy of Brønnøysund's roller/totalbestand (json.gz); tight plan downloads it otherwise")
+    p.add_argument("--subunits-bulk", default=_env("SIGNALPOST_SUBUNITS_BULK", None),
+                   help="local copy of Brønnøysund's underenheter CSV (csv.gz); tight plan downloads it otherwise")
     p.add_argument("--offline-registry", action="store_true", help="use only the bulk snapshot for identity (no live entity call)")
     p.add_argument("--no-html", action="store_true")
     p.add_argument("--quiet", action="store_true")

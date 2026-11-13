@@ -4,13 +4,14 @@ from __future__ import annotations
 import json
 import os
 import statistics
+import threading
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from pathlib import Path
 from typing import Any
 
-from . import __version__, registry
+from . import __version__, plan as planning, registry, registry_bulk
 from .budget import Budget
 from .connectors import BatchContext, CompanyContext, load_connectors
 from .http import Fetcher, utcnow
@@ -79,7 +80,11 @@ class Pipeline:
         self.snapshot = snapshot
         self.log(f"[signalpost] bulk snapshot: {snapshot.rows_scanned} rows scanned, {len(snapshot.rows)} batch rows "
                  f"({time.monotonic()-self.t0:.0f}s)")
+        self._make_plan(snapshot)
         self._registry_pass(snapshot)
+        for phase in list(self.budget.reserved):
+            if phase.startswith("registry."):  # "_batch" stays held until the batch-level sources finish
+                self.budget.release(phase)
         self._write_envelopes(provisional=True)
         self.log(f"[signalpost] registry pass done ({time.monotonic()-self.t0:.0f}s, {self.budget.used} requests); provisional envelopes written")
         self._connector_pass(snapshot)
@@ -96,12 +101,59 @@ class Pipeline:
         self.log(f"[signalpost] done in {time.monotonic()-self.t0:.0f}s, {self.budget.used} requests -> {self.envelopes_path}")
         return {"envelopes": len(envs)}
 
+    def _make_plan(self, snapshot: registry.BulkSnapshot) -> None:
+        """Tight request cap -> bulk roles/subunits and per-source reservations (plan.py). Otherwise nothing."""
+        n = len(self.orgs)
+        self.bulk_roles = self.bulk_subunits = None
+        force = bool(getattr(self.args, "tight", False))
+        if not force and not planning.is_tight(self.budget.max_requests, n):
+            self.plan = planning.Plan(False, planning.full_estimate(n))
+            return
+        wanted = set(self.orgs)
+        t = time.monotonic()
+        # Daemon threads with a deadline: a slow download must not eat the run's time budget or hold the
+        # process open; past the deadline the per-company endpoints are used instead.
+        results: dict[str, Any] = {}
+
+        def load(name: str, fn, local) -> None:
+            try:
+                results[name] = fn(self.fetcher, wanted, local)
+            except Exception as exc:  # a bulk file is an optimisation; the per-company calls remain
+                self.log(f"[signalpost] bulk {name} failed: {type(exc).__name__}: {exc}")
+
+        threads = [threading.Thread(target=load, args=a, daemon=True, name=f"bulk-{a[0]}") for a in (
+            ("roles", registry_bulk.load_roles, getattr(self.args, "roles_bulk", None)),
+            ("subunits", registry_bulk.load_subunits, getattr(self.args, "subunits_bulk", None)))]
+        for th in threads:
+            th.start()
+        deadline = time.monotonic() + min(15 * 60.0, 0.35 * self.budget.time_budget_s)
+        for th in threads:
+            th.join(max(0.0, deadline - time.monotonic()))
+            if th.is_alive():
+                self.log(f"[signalpost] {th.name} still running at its deadline; using per-company calls")
+        self.bulk_roles, self.bulk_subunits = results.get("roles"), results.get("subunits")
+        rows = snapshot.rows
+        in_group = sum(1 for r in rows.values() if r.get("erIKonsern") == "true") if rows else None
+        enabled = set(self.args.connectors.split(",")) if self.args.connectors else None
+        self.plan = planning.make_plan(
+            self.budget.max_requests - self.budget.used, n, in_snapshot=sum(1 for o in self.orgs if o in rows),
+            in_group=in_group, enabled=enabled,
+            roles_missing=None if self.bulk_roles is None else n - sum(1 for o in self.orgs if o in self.bulk_roles.records),
+            subunits_from_bulk=self.bulk_subunits is not None)
+        batch_phases = [c for c in planning.BATCH_PHASES if enabled is None or c in enabled]
+        self.budget.reserve(self.plan.reserve, self.plan.needs, pooled={c: "_batch" for c in batch_phases})
+        self.log(f"[signalpost] tight request plan ({self.budget.max_requests} for {n} companies; a full run needs about "
+                 f"{self.plan.full_estimate}): bulk roles {'yes' if self.bulk_roles else 'no'}, bulk subunits "
+                 f"{'yes' if self.bulk_subunits else 'no'} ({time.monotonic()-t:.0f}s); reserved {self.plan.reserve}")
+
     def _registry_pass(self, snapshot: registry.BulkSnapshot) -> None:
         def one(org: str) -> None:
             t = time.monotonic()
+            row = snapshot.rows.get(org)
+            live = not self.args.offline_registry and (self.plan.live_entity == "all" or row is None)
             try:
-                self.registry[org] = registry.collect(org, snapshot.rows.get(org), self.fetcher, snapshot.file_sha256,
-                                                      live_entity=not self.args.offline_registry)
+                self.registry[org] = registry.collect(org, row, self.fetcher, snapshot.file_sha256, live_entity=live,
+                                                      bulk_roles=self.bulk_roles, bulk_subunits=self.bulk_subunits)
             except Exception as exc:
                 c = Contribution()
                 c.state("legal_identity", "failed", f"registry error: {type(exc).__name__}")
@@ -176,6 +228,9 @@ class Pipeline:
                 if res is not None:
                     self.contrib[org].merge(res)
                 self.company_ms[org] = self.company_ms.get(org, 0.0) + ms
+                st = self.connector_stats[conn.name]
+                if st["ok"] + st["error"] + st["skipped"] >= len(active):
+                    self.budget.release(conn.name)  # finished: unspent reservation goes back to the pool
         for f in pending:
             f.cancel()
             conn, org = futures[f]
@@ -322,7 +377,7 @@ class Pipeline:
             "claims_by_field": _count(c["field"] for c in claims),
             "companies_with_external_claim": sum(1 for e in envs if any(c.get("external") and c.get("availability") == "available" for c in e["claims"])),
             "changes": sum(len(e["changes"]) for e in envs),
-            "operations": {**self.budget.report(), "http_responses": self.fetcher.count, "bytes": self.fetcher.bytes,
+            "operations": {**self.budget.report(), "request_plan": self.plan.report(), "http_responses": self.fetcher.count, "bytes": self.fetcher.bytes,
                            "p50_ms": int(statistics.median(ms)), "p95_ms": int(ms[int(0.95 * (len(ms) - 1))]),
                            "third_party_cost_usd": round(sum(e["operations"].get("third_party_cost_usd", 0.0) for e in envs), 4)},
             "connectors": self.connector_stats,

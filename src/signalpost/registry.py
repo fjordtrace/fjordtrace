@@ -391,6 +391,14 @@ def accounts_claims(org: str, res: FetchResult, out: Contribution) -> list[dict]
 ROLE_PRIORITY = {"DAGL": 0, "LEDE": 1, "NEST": 2, "MEDL": 3, "VARA": 4, "OBS": 5, "REVI": 6, "REGN": 7}
 
 
+def _bulk_meta(res: FetchResult, api_method: str) -> tuple[str, str | None]:
+    """(extraction method, locator prefix) — bulk-file slices say so in their evidence."""
+    name = (res.headers or {}).get("x-bulk-file")
+    if name is None:
+        return api_method, None
+    return api_method.replace("_api_json", "_bulk_file"), f"fil={name};organisasjonsnummer="
+
+
 def roles_claims(org: str, res: FetchResult, out: Contribution) -> list[dict]:
     if res.status in (404, 410):
         out.state("roles", "not_available", "no roles registered")
@@ -423,11 +431,12 @@ def roles_claims(org: str, res: FetchResult, out: Contribution) -> list[dict]:
             role = {k: v for k, v in role.items() if v}
             roles.append(role)
     roles.sort(key=lambda r: (ROLE_PRIORITY.get(r.get("role_code", ""), 9), r.get("name", "")))
+    method, bulk_loc = _bulk_meta(res, "brreg_roles_api_json")
     for r in roles:
         span = f"{r.get('group')}: {r.get('role')} {r.get('name')}"
-        e = make_evidence(res.url, "official_roles", res.retrieved_at, res.content_sha256, span, "brreg_roles_api_json",
+        e = make_evidence(res.url, "official_roles", res.retrieved_at, res.content_sha256, span, method,
                           http_status=res.status, access_policy="NLOD-2.0", effective_at=r.get("register_entry_changed"),
-                          locator=f"rolle={r.get('role_code')}")
+                          locator=(f"{bulk_loc}{org};" if bulk_loc else "") + f"rolle={r.get('role_code')}")
         field = "auditor" if r.get("role_code") in ("REVI", "REGN") else "role"
         disc = f"{r.get('role_code')}:{r.get('holder_organisation_number') or r.get('name')}"
         out.add(make_claim(field, r, [e], discriminator=disc, effective_at=r.get("register_entry_changed")), e)
@@ -442,6 +451,7 @@ def subunit_claims(org: str, res: FetchResult, out: Contribution) -> list[dict]:
         out.error("registry.subunits", res.error or "fetch failed", res.url)
         return []
     units = _g(res.json(), "_embedded", "underenheter") or []
+    method, bulk_loc = _bulk_meta(res, "brreg_subunits_api_json")
     found = []
     for u in units:
         if u.get("slettedato") or u.get("nedleggelsesdato"):
@@ -460,8 +470,8 @@ def subunit_claims(org: str, res: FetchResult, out: Contribution) -> list[dict]:
         value = {k: v for k, v in value.items() if v not in (None, "", {})}
         span = f"underenhet {value.get('organisation_number')} {value.get('name')} {value.get('address', {}).get('poststed', '')}"
         e = make_evidence(res.url, "official_subunits", res.retrieved_at, res.content_sha256, span,
-                          "brreg_subunits_api_json", http_status=res.status, access_policy="NLOD-2.0",
-                          locator=f"underenhet={value.get('organisation_number')}")
+                          method, http_status=res.status, access_policy="NLOD-2.0",
+                          locator=(f"{bulk_loc}{org};" if bulk_loc else "") + f"underenhet={value.get('organisation_number')}")
         out.add(make_claim("workplace", value, [e], discriminator=value.get("organisation_number")), e)
         found.append(value)
     if not found:
@@ -512,12 +522,16 @@ def group_claims(org: str, res: FetchResult, out: Contribution) -> None:
         out.state("group_relation", "not_available", "group structure returned no direct parent or subsidiary")
 
 
-def collect(org: str, row: dict[str, str] | None, fetcher: Fetcher, snapshot_sha: str | None, live_entity: bool = True) -> Contribution:
-    """Registry phase for one company. Returns contribution with facts['profile']."""
+def collect(org: str, row: dict[str, str] | None, fetcher: Fetcher, snapshot_sha: str | None, live_entity: bool = True,
+            bulk_roles: Any = None, bulk_subunits: Any = None) -> Contribution:
+    """Registry phase for one company. Returns contribution with facts['profile'].
+
+    ``bulk_roles`` / ``bulk_subunits`` (registry_bulk.BulkSource, tight-budget plan) replace the per-company
+    roles and subunit calls; a company missing from the roles file still gets its live call."""
     out = Contribution()
     profile_row = row
     if live_entity:
-        res = fetcher.get(ENTITY_URL.format(org=org), "registry", essential=True)
+        res = fetcher.get(ENTITY_URL.format(org=org), "registry.entity", essential=True)
         if res.status == 410 or (res.status == 404 and row is None):
             out.facts["deleted"] = True
             out.state("legal_identity", "not_available",
@@ -538,11 +552,19 @@ def collect(org: str, row: dict[str, str] | None, fetcher: Fetcher, snapshot_sha
         registry_claims(org, row, BULK_URL, "official_registry_bulk", utcnow(), "brreg_bulk_csv_row", out)
     out.facts["profile"] = profile_row or {}
 
-    accounts = accounts_claims(org, fetcher.get(ACCOUNTS_URL.format(org=org), "registry", essential=True), out)
-    roles = roles_claims(org, fetcher.get(ROLES_URL.format(org=org), "registry", essential=True), out)
-    units = subunit_claims(org, fetcher.get(SUBUNITS_URL.format(org=org), "registry", essential=True), out)
+    accounts = accounts_claims(org, fetcher.get(ACCOUNTS_URL.format(org=org), "registry.accounts", essential=True), out)
+    if bulk_roles is not None and org in bulk_roles.records:
+        roles_res = bulk_roles.result_for(org, b"{}")
+    else:
+        roles_res = fetcher.get(ROLES_URL.format(org=org), "registry.roles", essential=True)
+    roles = roles_claims(org, roles_res, out)
+    if bulk_subunits is not None:  # the file lists every subunit, so absence means none are registered
+        units_res = bulk_subunits.result_for(org, b"{}")
+    else:
+        units_res = fetcher.get(SUBUNITS_URL.format(org=org), "registry.subunits", essential=True)
+    units = subunit_claims(org, units_res, out)
     if (profile_row or {}).get("erIKonsern") == "true":
-        group_claims(org, fetcher.get(GROUP_URL.format(org=org), "registry"), out)
+        group_claims(org, fetcher.get(GROUP_URL.format(org=org), "registry.group"), out)
     else:
         out.state("group_relation", "not_applicable", "registry does not mark the company as part of a group")
     out.facts.update({"accounts": accounts, "roles": roles, "workplaces": units,

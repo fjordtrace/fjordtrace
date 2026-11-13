@@ -68,6 +68,25 @@ diffs against an earlier output instead. See [REFRESH.md](REFRESH.md).
 When time or requests run out, the remaining sources are reported as `blocked` with the reason, never
 dropped. Measured on a random 1,000-company batch on a home connection: see `smoke-test/`.
 
+**Tight request caps.** A full run needs about 9.1 requests per company. When `--max-requests` is below
+that, the agent switches to a request plan (`plan.py`) instead of spending the cap on the first companies:
+
+- identity comes from the bulk snapshot (the live entity call is made only for companies missing from it);
+- roles and registered subunits come from Brønnøysund's two bulk files (`roller/totalbestand`,
+  `underenheter/lastned/csv`): one request each for the whole batch instead of one per company;
+- the rest is reserved per source in order of measured yield per request: batch-level sources (LEI,
+  Wikidata, NAV, TED, Mattilsynet), annual accounts, group links, workforce, website, public support,
+  central approval. A source that finishes under its share hands the rest to the next one.
+
+| Option | Default | Env |
+|---|---|---|
+| `--tight` | automatic (cap below a full run) | `SIGNALPOST_TIGHT=1` |
+| `--roles-bulk` / `--subunits-bulk` | downloaded at run time | `SIGNALPOST_ROLES_BULK` / `SIGNALPOST_SUBUNITS_BULK` |
+
+With 2,000 requests for 1,000 companies, every company still gets identity, roles, subunits and annual
+accounts, plus group links and as much workforce as the cap allows (see `smoke-test/`). The plan and each
+source's reservation are printed at start and recorded under `operations.request_plan` in `run-report.json`.
+
 Optional server-side keys (none required): `SIGNALPOST_NAV_TOKEN` (registered NAV job-feed consumer token),
 and `BRAVE_SEARCH_API_KEY` (search only nominates candidate domains; a site is attributed only if it shows this
 organisation number). See [SECURITY.md](SECURITY.md).

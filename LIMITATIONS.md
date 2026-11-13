@@ -17,6 +17,10 @@
 - **NAV jobs:** a shipped index of active ads (a declared cache, rebuilt with `tools/build_nav_index.py`) is
   updated from the feed at run time, and every published ad is re-verified live. Without
   `SIGNALPOST_NAV_TOKEN`, NAV's rotating public token is used, so token failures are reported as `blocked`.
+- **Tight request caps** (below ~9 requests per company) trade the lowest-yield sources for coverage of the
+  higher ones: website, Støtteregisteret and DiBK checks are reported as `blocked` (with the reason) once
+  their share is spent. Roles and subunits then come from Brønnøysund's daily bulk files, so they can be up
+  to a day older than the live API.
 - **Reviews, ratings and sentiment are not collected.** No permitted source was available without
   restricted scraping.
 - **Social metrics** (followers, posts) are not collected. Handles come only from the verified site or

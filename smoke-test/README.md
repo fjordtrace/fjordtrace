@@ -5,6 +5,47 @@ home connection in Australia (Windows 11, 12 logical cores), with the default bu
 Companies were drawn at random from the public 411,160-company universe: seed 101 for the 100 (the starter kit's
 `select_entry_batch.py`), and fresh seeds for each 1,000-company batch, never reused for tuning.
 
+## Version 3 (0.3.0)
+
+Version 3 adds the request plan for tight caps (see the main README). Below, the default cap first, then
+the same runs with a cap of 2 requests per company (the earlier listing's 2,000 for 1,000). In tight runs the
+two Brønnøysund bulk files (192 MB together) were downloaded live; on this connection that took 6–7 minutes
+of the runtime.
+
+| | 100 (smoke, default cap) | 100, cap 200 | 1,000 fresh (seed 20261113), cap 2,000 |
+|---|---|---|---|
+| Commit | `004c52b` | `004c52b` | `004c52b` code before its last two edits (see note) |
+| Envelopes / inputs | 100 / 100 | 100 / 100 | 1000 / 1000 |
+| Contract validation | passed | passed | passed |
+| Runtime | 3.9 min | 10.7 min | 35.8 min |
+| Requests (per company) | 933 (9.3) | 200 (2.0) | 2000 (2.0) |
+| Third-party cost | $0 | $0 | $0 |
+| Companies with ≥1 external claim | 98 | 73 | 859 |
+| Refresh re-run on the same companies | 0 changes | | |
+
+Companies whose family is `available`:
+
+| Family | 100 | 100, cap 200 | 1,000, cap 2,000 |
+|---|---|---|---|
+| legal_identity | 100 | 100 | 1000 |
+| annual_accounts | 100 | 100 | 1000 |
+| roles | 100 | 100 | 994 |
+| workplaces | 75 | 75 | 751 |
+| group_relation | 11 | 9 | 72 |
+| workforce | 97 | 70 | 815 |
+| official_website | 11 | 0 (blocked by cap) | 0 (blocked by cap) |
+| lei | 6 | 6 | 133 |
+| public_support / central_approval | 8 / 2 | blocked by cap | blocked by cap |
+
+Note on the 1,000 run: it ran before two final edits in `004c52b`, a deadline on the bulk downloads and
+the version strings, so its report says `agent_version` 0.2.0. Neither edit changes what a run collects.
+For comparison, version 2's code with the same 100-company cap of 200 (and no bulk snapshot) left 45 of the
+100 companies `blocked` and none with an external claim, because the registry pass spent the whole cap on the
+first companies.
+
+Files: `envelopes-100.jsonl`, `run-report-100.json`, `report-100.html` (default cap),
+`run-report-100-tight200.json`, `run-report-1000-tight2000.json`.
+
 ## Version 2
 
 | | 100 (smoke) | 1,000 (fresh batch, seed 4242) |
@@ -48,6 +89,6 @@ Every family that is not available carries an explicit state and reason (`not_av
 `failed` or `not_applicable`). See `family_states` in each run report. Per-connector finish times are in
 `connectors.*.finished_at_s`; the workforce lane (rate-limited PDF downloads) finishes last.
 
-Files: `companies-100.jsonl` (input), `envelopes-100.jsonl` (output), `run-report-100.json`, `report-100.html`
-(open in a browser), `run-report-1000-v2.json`. Version 1 reports: `run-report-1000.json`,
+Files: `companies-100.jsonl` (input), `run-report-1000-v2.json`. Version 2's own 100-company outputs were
+replaced by version 3's; they remain in the git history at `7da0ec2`. Version 1 reports: `run-report-1000.json`,
 `run-report-1000-unseen.json`.

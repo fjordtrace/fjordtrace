@@ -1,0 +1,267 @@
+{
+  "run_id": "run-20261113T113856Z",
+  "agent_version": "0.2.0",
+  "started_at": "2026-11-13T11:38:56Z",
+  "completed_at": "2026-11-13T12:14:44Z",
+  "inputs": 1000,
+  "unique_valid_inputs": 1000,
+  "emitted_envelopes": 1000,
+  "envelope_states": {
+    "available": 1000
+  },
+  "family_states": {
+    "group_relation": {
+      "not_applicable": 928,
+      "available": 72
+    },
+    "procurement": {
+      "not_available": 986,
+      "available": 14
+    },
+    "jobs": {
+      "not_available": 994,
+      "available": 6
+    },
+    "lei": {
+      "not_available": 867,
+      "available": 133
+    },
+    "wikidata": {
+      "not_available": 991,
+      "available": 9
+    },
+    "food_inspections": {
+      "not_available": 980,
+      "available": 20
+    },
+    "public_support": {
+      "blocked": 1000
+    },
+    "central_approval": {
+      "blocked": 1000
+    },
+    "workforce": {
+      "available": 815,
+      "ambiguous": 8,
+      "not_available": 19,
+      "blocked": 158
+    },
+    "official_website": {
+      "not_available": 674,
+      "blocked": 299,
+      "ambiguous": 27
+    },
+    "social_profiles": {
+      "not_available": 701,
+      "blocked": 298,
+      "available": 1
+    },
+    "news_activity": {
+      "not_available": 701,
+      "blocked": 299
+    },
+    "legal_identity": {
+      "available": 1000
+    },
+    "annual_accounts": {
+      "available": 1000
+    },
+    "roles": {
+      "available": 994,
+      "not_available": 6
+    },
+    "workplaces": {
+      "available": 751,
+      "not_available": 249
+    }
+  },
+  "claims_available": 20350,
+  "claims_by_field": {
+    "role": 2899,
+    "annual_accounts": 2811,
+    "auditor": 1013,
+    "industry": 1006,
+    "legal_form": 1000,
+    "legal_name": 1000,
+    "registration_status": 1000,
+    "activity_description": 998,
+    "annual_account_filing": 998,
+    "registered_date": 998,
+    "registered_address": 997,
+    "founded_date": 991,
+    "statutory_purpose": 971,
+    "share_capital": 934,
+    "workforce_fte": 815,
+    "workplace": 815,
+    "registry_contact": 373,
+    "postal_address": 222,
+    "registered_employees": 146,
+    "lei_record": 133,
+    "food_inspection": 93,
+    "group_relation": 83,
+    "procurement_award": 31,
+    "job_posting": 11,
+    "wikidata_item": 9,
+    "social_profile": 3
+  },
+  "companies_with_external_claim": 859,
+  "changes": 0,
+  "operations": {
+    "max_requests": 2000,
+    "requests_used": 2000,
+    "requests_by_phase": {
+      "registry.bulk": 2,
+      "registry.accounts": 1000,
+      "registry.group": 72,
+      "registry.roles": 6,
+      "registry.entity": 2,
+      "wikidata": 16,
+      "food_inspections": 1,
+      "lei": 10,
+      "procurement": 10,
+      "nav_jobs": 31,
+      "workforce": 850
+    },
+    "requests_refused_by_phase": {
+      "website": 372,
+      "public_support": 1000,
+      "central_approval": 1004,
+      "workforce": 158
+    },
+    "requests_reserved_by_phase": {
+      "registry.entity": 2,
+      "_batch": 68,
+      "registry.accounts": 1000,
+      "registry.roles": 6,
+      "registry.group": 72,
+      "registry.subunits": 0,
+      "workforce": 850,
+      "website": 0,
+      "public_support": 0,
+      "central_approval": 0
+    },
+    "time_budget_s": 2700.0,
+    "elapsed_s": 2148.02,
+    "request_plan": {
+      "tight": true,
+      "full_estimate": 9100,
+      "live_entity": "missing",
+      "bulk_roles": true,
+      "bulk_subunits": true,
+      "reserve": {
+        "registry.entity": 2,
+        "_batch": 80,
+        "registry.accounts": 1000,
+        "registry.roles": 6,
+        "registry.group": 72,
+        "registry.subunits": 0,
+        "workforce": 838,
+        "website": 0,
+        "public_support": 0,
+        "central_approval": 0
+      },
+      "needs": {
+        "registry.entity": 2,
+        "_batch": 80,
+        "registry.accounts": 1000,
+        "registry.roles": 6,
+        "registry.group": 72,
+        "registry.subunits": 0,
+        "workforce": 1000,
+        "website": 1940,
+        "public_support": 1000,
+        "central_approval": 1000
+      }
+    },
+    "http_responses": 2000,
+    "bytes": 496326812,
+    "p50_ms": 8320,
+    "p95_ms": 28078,
+    "third_party_cost_usd": 0.0
+  },
+  "connectors": {
+    "website": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 786.2
+    },
+    "nav_jobs": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 489.6
+    },
+    "workforce": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 2134.0
+    },
+    "wikidata": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 487.7
+    },
+    "lei": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 487.7
+    },
+    "public_support": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 490.5
+    },
+    "central_approval": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 491.7
+    },
+    "procurement": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 487.8
+    },
+    "food_inspections": {
+      "ok": 1000,
+      "error": 0,
+      "skipped": 0,
+      "finished_at_s": 488.9
+    }
+  },
+  "connector_pass_started_s": 476.5,
+  "connector_prepare_s": {
+    "workforce": 0.0,
+    "public_support": 0.0,
+    "central_approval": 0.0,
+    "nav_jobs": 1.7,
+    "website": 2.0,
+    "lei": 5.8,
+    "food_inspections": 7.1,
+    "procurement": 8.3,
+    "wikidata": 10.7
+  },
+  "workforce_stats": {
+    "downloads": 842,
+    "bytes": 275097712,
+    "download_s": 2612.4,
+    "ocr_s": 250.5,
+    "throttled": 8
+  },
+  "registry_snapshot": {
+    "path": "../data/brreg-enheter.csv.gz",
+    "sha256": "d3513fc2c0c15facb360568a2c92333a39f2059edfc29d0f1cf5f130e990ade3",
+    "rows_scanned": 1180410
+  },
+  "validation": {
+    "passed": true,
+    "exact_count": true,
+    "contract_problems": {}
+  }
+}
